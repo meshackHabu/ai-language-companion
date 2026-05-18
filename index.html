@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Language Learning Companion</title>
+    <link rel="stylesheet" href="assets/css/style.css">
+</head>
+
+<body class="landing-page">
+    <div class="landing-shell">
+        <section class="landing-hero">
+            <div class="landing-topbar">
+                <p class="landing-kicker">AI Language Companion</p>
+                <div class="landing-auth-links">
+                    <a class="ghost-link-btn" href="login.html">Log In</a>
+                    <a class="ghost-link-btn landing-primary-link" href="signup.html">Sign Up</a>
+                </div>
+            </div>
+
+            <h1>Choose a language and start practicing real conversations.</h1>
+            <p class="landing-copy">Build your vocabulary, practice weak words, and learn with guided AI conversation flow that fits your level.</p>
+        </section>
+
+        <section class="language-grid-section">
+            <div class="language-grid-header">
+                <h2>Pick your learning language</h2>
+                <p>Choose one to open the dashboard and continue your study flow.</p>
+            </div>
+
+            <div class="language-grid">
+                <div class="language-card" onclick="goToLanguage('hausa')">
+                    <h3>Nigerian Language</h3>
+                    <p>Hausa</p>
+                </div>
+                <div class="language-card" onclick="goToLanguage('yoruba')">
+                    <h3>Nigerian Language</h3>
+                    <p>Yoruba</p>
+                </div>
+                <div class="language-card" onclick="goToLanguage('igbo')">
+                    <h3>Nigerian Language</h3>
+                    <p>Igbo</p>
+                </div>
+                <div class="language-card" onclick="goToLanguage('french')">
+                    <h3>Across Regions</h3>
+                    <p>French</p>
+                </div>
+                <div class="language-card" onclick="goToLanguage('swahili')">
+                    <h3>East Africa</h3>
+                    <p>Swahili</p>
+                </div>
+                <div class="language-card" onclick="goToLanguage('zulu')">
+                    <h3>Southern Africa</h3>
+                    <p>Zulu</p>
+                </div>
+                <div class="language-card" onclick="goToLanguage('amharic')">
+                    <h3>Horn of Africa</h3>
+                    <p>Amharic</p>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        function isLoggedIn() {
+            return localStorage.getItem("languageCompanionSession") === "active";
+        }
+
+        function goToLanguage(lang) {
+            localStorage.setItem("selectedLanguage", lang);
+
+            if (isLoggedIn()) {
+                window.location.href = `dashboard.html?lang=${lang}`;
+                return;
+            }
+
+            window.location.href = `login.html?lang=${lang}`;
+        }
+    </script>
+</body>
+
+</html>

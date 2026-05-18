@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Signing Out</title>
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+
+<body class="auth-page">
+  <div class="auth-shell">
+    <section class="auth-card">
+      <p class="auth-form-label">Account</p>
+      <h2>Signing you out...</h2>
+      <p class="auth-copy" id="logoutStatus">Please wait.</p>
+    </section>
+  </div>
+
+  <script>
+    const selectedLang = localStorage.getItem("selectedLanguage") || "yoruba";
+
+    localStorage.removeItem("languageCompanionSession");
+    localStorage.removeItem("languageCompanionUser");
+
+    document.getElementById("logoutStatus").textContent = "You have been signed out.";
+
+    window.setTimeout(() => {
+      window.location.href = `login.html?lang=${selectedLang}&logout=1`;
+    }, 250);
+  </script>
+</body>
+
+</html>

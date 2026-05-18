@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Flashcards</title>
+  <link rel="stylesheet" href="assets/css/style.css">
+  <script src="data.js"></script>
+</head>
+
+<body>
+
+  <div class="container">
+
+    <a href="dashboard.html" class="back-btn" id="backBtn">Back to Dashboard</a>
+
+    <h1 class="page-title" id="languageTitle">Language Learning</h1>
+    <p class="category-label" id="categoryLabel">Categories: Greetings</p>
+    <p class="category-label" id="levelLabel">Level: Starter</p>
+    <p class="category-label" id="studyModeLabel">Mode: My Level</p>
+
+    <div class="flashcard-progress">
+      <span id="progressText">Card 0 of 0</span>
+    </div>
+
+    <div class="flashcard" onclick="flipCard()">
+      <div class="flashcard-inner" id="flashcardInner">
+
+        <div class="flashcard-front">
+          <span class="card-side-label">Word</span>
+          <h2 id="word">Word</h2>
+          <p class="hint">Tap to reveal meaning</p>
+        </div>
+
+        <div class="flashcard-back">
+          <span class="card-side-label">Meaning</span>
+          <h3 id="meaning">Meaning</h3>
+          <p class="example-label">Example</p>
+          <p id="example">Example:</p>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="action-buttons">
+      <button class="secondary-btn" type="button" onclick="listen()">Listen</button>
+      <button class="ai-btn" type="button" onclick="flipCard()">Explain</button>
+      <button class="right-btn" type="button" onclick="nextCard()">Next Card</button>
+    </div>
+
+    <p class="flashcard-status" id="flashcardStatus">Tap the card to flip and study the example.</p>
+
+  </div>
+
+  <script src="progress.js"></script>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+
+      let currentIndex = 0;
+      let currentDeck = [];
+
+      function flipCard() {
+        const flashcard = document.getElementById("flashcardInner");
+        if (flashcard) {
+          flashcard.classList.toggle("flipped");
+        }
+      }
+      window.flipCard = flipCard;
+
+      const params = new URLSearchParams(window.location.search);
+      let lang = params.get("lang") || localStorage.getItem("selectedLanguage") || "yoruba";
+      const selectedCategory = params.get("category") || localStorage.getItem("selectedCategory") || "all";
+      const selectedStudyMode = params.get("studyMode") || localStorage.getItem("selectedStudyMode") || "level";
+      const progressKey = `flashcardIndex::${lang}::${selectedCategory}::${selectedStudyMode}`;
+      let safeCategory = selectedCategory;
+      let learnerLevel = "starter";
+
+      if (typeof getLanguageCategories === "function") {
+        const validCategories = getLanguageCategories(lang);
+        if (safeCategory !== "all" && !validCategories.includes(safeCategory)) {
+          safeCategory = "all";
+        }
+      }
+
+      localStorage.setItem("selectedLanguage", lang);
+      localStorage.setItem("selectedCategory", safeCategory);
+      localStorage.setItem("selectedStudyMode", selectedStudyMode);
+
+      const languageNames = {
+        yoruba: "Yoruba",
+        hausa: "Hausa",
+        igbo: "Igbo",
+        french: "French",
+        swahili: "Swahili",
+        zulu: "Zulu",
+        amharic: "Amharic"
+      };
+
+      const allFlashcardData =
+        typeof flashcardData !== "undefined" ? flashcardData : (window.flashcardData || {});
+
+      const title = document.getElementById("languageTitle");
+
+      function updateTitle() {
+        if (title) {
+          title.textContent = "Learning " + (languageNames[lang] || "Language");
+        }
+      }
+
+      if (typeof getDeckForLanguage === "function" && getDeckForLanguage(lang, safeCategory).length) {
+        currentDeck = getDeckForLanguage(lang, safeCategory);
+      } else if (allFlashcardData[lang]) {
+        currentDeck = [...allFlashcardData[lang]];
+      } else if (typeof getDeckForLanguage === "function" && getDeckForLanguage("yoruba", safeCategory).length) {
+        currentDeck = getDeckForLanguage("yoruba", safeCategory);
+        lang = "yoruba";
+        localStorage.setItem("selectedLanguage", lang);
+      } else if (allFlashcardData["yoruba"]) {
+        currentDeck = [...allFlashcardData["yoruba"]];
+        lang = "yoruba";
+        localStorage.setItem("selectedLanguage", lang);
+      }
+
+      updateTitle();
+      if (typeof getDashboardStats === "function") {
+        learnerLevel = (getDashboardStats(lang, getDeckForLanguage(lang).length).level || "Starter").toLowerCase();
+      }
+
+      if (typeof getDeckForStudyMode === "function") {
+        const levelDeck = getDeckForStudyMode(lang, learnerLevel, safeCategory, selectedStudyMode);
+        if (levelDeck.length) {
+          currentDeck = levelDeck;
+        }
+      } else if (typeof getDeckForStudyLevel === "function") {
+        const levelDeck = getDeckForStudyLevel(lang, learnerLevel, safeCategory);
+        if (levelDeck.length) {
+          currentDeck = levelDeck;
+        }
+      }
+
+      if (typeof getLanguageCategories === "function") {
+        const categoryNames = getLanguageCategories(lang)
+          .map(name => name.charAt(0).toUpperCase() + name.slice(1))
+          .join(", ");
+
+        document.getElementById("categoryLabel").textContent = safeCategory === "all"
+          ? `Categories: ${categoryNames}`
+          : `Category: ${safeCategory.charAt(0).toUpperCase() + safeCategory.slice(1)}`;
+      }
+      document.getElementById("levelLabel").textContent =
+        `Level: ${learnerLevel.charAt(0).toUpperCase() + learnerLevel.slice(1)}`;
+      document.getElementById("studyModeLabel").textContent =
+        `Mode: ${selectedStudyMode === "adaptive" ? "Adaptive" : "My Level"}`;
+      document.getElementById("backBtn").href =
+        `dashboard.html?lang=${lang}&category=${safeCategory}&studyMode=${selectedStudyMode}`;
+
+      function shuffle(array) {
+        const copy = [...array];
+        for (let i = copy.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [copy[i], copy[j]] = [copy[j], copy[i]];
+        }
+        return copy;
+      }
+
+      function normalizeDeck(cards) {
+        const seen = new Set();
+        const cleaned = (cards || []).filter(card => {
+          if (!card || !card.word || !card.meaning) return false;
+          const key = `${String(card.word).trim().toLowerCase()}::${String(card.meaning).trim().toLowerCase()}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+        return shuffle(cleaned);
+      }
+
+      function setStatus(message) {
+        document.getElementById("flashcardStatus").textContent = message;
+      }
+
+      function updateProgressText(current, total) {
+        const weakWordsCount = getDifficultWords(lang).length;
+        document.getElementById("progressText").textContent =
+          `Card ${current} of ${total} - Weak words: ${weakWordsCount}`;
+      }
+
+      function showEmptyState() {
+        document.getElementById("word").textContent = "No words available";
+        document.getElementById("meaning").textContent = "Please add flashcards for this language.";
+        document.getElementById("example").textContent = "Try another language from the dashboard.";
+        updateProgressText(0, 0);
+        document.getElementById("flashcardInner").classList.remove("flipped");
+        setStatus("No flashcards were found for this language.");
+      }
+
+      function showCard() {
+
+        if (currentDeck.length === 0) {
+          showEmptyState();
+          return;
+        }
+
+        if (currentIndex >= currentDeck.length) {
+          currentIndex = 0;
+        }
+
+        const card = currentDeck[currentIndex];
+
+        document.getElementById("word").textContent = card.word;
+        document.getElementById("meaning").textContent = card.meaning;
+        document.getElementById("example").textContent = `Example: ${card.example || "No example yet"}`;
+
+        document.getElementById("flashcardInner").classList.remove("flipped");
+
+        updateProgressText(currentIndex + 1, currentDeck.length);
+        sessionStorage.setItem(progressKey, String(currentIndex));
+        setStatus("Tap the card to flip and study the example.");
+      }
+
+      function nextCard() {
+        if (currentDeck.length === 0) return;
+        currentIndex++;
+        if (currentIndex >= currentDeck.length) {
+          currentIndex = 0;
+        }
+        showCard();
+      }
+      window.nextCard = nextCard;
+
+      function listen() {
+        alert("Pronunciation coming soon");
+      }
+      window.listen = listen;
+
+      currentDeck = normalizeDeck(currentDeck);
+      const savedIndex = Number.parseInt(sessionStorage.getItem(progressKey) || "0", 10);
+      if (Number.isInteger(savedIndex) && savedIndex >= 0 && savedIndex < currentDeck.length) {
+        currentIndex = savedIndex;
+      } else {
+        currentIndex = 0;
+      }
+      showCard();
+
+    });
+  </script>
+</body>
+
+</html>

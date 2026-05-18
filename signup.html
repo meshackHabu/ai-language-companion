@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign Up</title>
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+
+<body class="auth-page">
+  <div class="auth-shell">
+    <section class="auth-showcase">
+      <p class="auth-kicker">Start Your Journey</p>
+      <h1>Build a simple language routine that feels personal.</h1>
+      <p>Create a profile, choose your learning flow, and let the AI companion grow with your level.</p>
+
+      <div class="auth-highlights">
+        <div class="auth-highlight-card">
+          <strong>Adaptive learning</strong>
+          <span>Study at your own level or let the app mix easier and harder words for you.</span>
+        </div>
+        <div class="auth-highlight-card">
+          <strong>Real-life scenarios</strong>
+          <span>Practice greetings, market, home, bus stop, clinic, and classroom conversations.</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="auth-card">
+      <p class="auth-form-label">Create Profile</p>
+      <h2>Sign up</h2>
+      <p class="auth-copy">Create your account and save your profile in the backend.</p>
+
+      <form id="signupForm" class="auth-form">
+        <label class="auth-field">
+          <span>Full Name</span>
+          <input type="text" id="signupName" placeholder="Your name" required>
+        </label>
+
+        <label class="auth-field">
+          <span>Email</span>
+          <input type="email" id="signupEmail" placeholder="you@example.com" required>
+        </label>
+
+        <label class="auth-field">
+          <span>Learning Goal</span>
+          <input type="text" id="signupGoal" placeholder="For example: Speak Hausa confidently" required>
+        </label>
+
+        <label class="auth-field">
+          <span>Password</span>
+          <input type="password" id="signupPassword" placeholder="Create password" required>
+        </label>
+
+        <button class="auth-submit-btn" type="submit">Create Account</button>
+      </form>
+
+      <p class="auth-note" id="signupStatus">Your profile card on the dashboard will use these details.</p>
+      <p class="auth-switch">Already have an account? <a href="login.html">Log in</a></p>
+    </section>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const selectedLang = params.get("lang") || localStorage.getItem("selectedLanguage") || "yoruba";
+    const pageMode = params.get("mode") || "signup";
+    const forceAuth = params.get("forceAuth") === "1";
+    const API_BASE = "http://localhost:4000";
+
+    function getStoredUser() {
+      try {
+        const raw = localStorage.getItem("languageCompanionUser");
+        return raw ? JSON.parse(raw) : null;
+      } catch (error) {
+        return null;
+      }
+    }
+
+    function goToDashboard() {
+      window.location.href = `dashboard.html?lang=${selectedLang}`;
+    }
+
+    function isEditMode() {
+      return pageMode === "edit";
+    }
+
+    function clearStoredSession() {
+      localStorage.removeItem("languageCompanionSession");
+      localStorage.removeItem("languageCompanionUser");
+    }
+
+    async function validateStoredSession() {
+      if (forceAuth && !isEditMode()) {
+        clearStoredSession();
+        document.getElementById("signupStatus").textContent = "Fresh signup mode enabled. Create a new account.";
+        return;
+      }
+
+      const savedUser = getStoredUser();
+
+      if (localStorage.getItem("languageCompanionSession") !== "active" || !savedUser || !savedUser.id) {
+        if (isEditMode()) {
+          window.location.href = `login.html?lang=${selectedLang}`;
+        }
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/user/profile/${savedUser.id}`);
+        const payload = await response.json();
+
+        if (!response.ok || !payload.user) {
+          clearStoredSession();
+          return;
+        }
+
+        localStorage.setItem("languageCompanionUser", JSON.stringify({
+          id: payload.user.id,
+          name: payload.user.name,
+          email: payload.user.email,
+          role: payload.user.role || "user",
+          goal: payload.user.goal || "Daily conversation practice",
+          joinedAt: payload.user.created_at
+        }));
+
+        document.getElementById("signupName").value = payload.user.name || "";
+        document.getElementById("signupEmail").value = payload.user.email || "";
+        document.getElementById("signupGoal").value = payload.user.goal || "";
+
+        if (!isEditMode()) {
+          document.getElementById("signupStatus").textContent =
+            "You already have a session. You can still create another account, or go back to login.";
+        }
+      } catch (error) {
+        document.getElementById("signupStatus").textContent =
+          "Backend is not reachable right now. Start it with `npm run dev` before creating an account.";
+      }
+    }
+
+    const savedUser = getStoredUser();
+    if (savedUser) {
+      document.getElementById("signupName").value = savedUser.name || "";
+      document.getElementById("signupEmail").value = savedUser.email || "";
+      document.getElementById("signupGoal").value = savedUser.goal || "";
+    }
+
+    if (isEditMode()) {
+      document.title = "Edit Profile";
+      document.querySelector(".auth-kicker").textContent = "Update Profile";
+      document.querySelector(".auth-card .auth-form-label").textContent = "Profile Settings";
+      document.querySelector(".auth-card h2").textContent = "Edit profile";
+      document.querySelector(".auth-copy").textContent = "Update your learner details and save them to the backend.";
+      document.querySelector(".auth-submit-btn").textContent = "Save Changes";
+      document.getElementById("signupPassword").closest(".auth-field").style.display = "none";
+      document.getElementById("signupPassword").required = false;
+      document.getElementById("signupEmail").disabled = true;
+      document.getElementById("signupStatus").textContent = "Edit your name or learning goal, then save changes.";
+      document.querySelector(".auth-switch").innerHTML = '<a href="dashboard.html">Back to dashboard</a>';
+    }
+
+    validateStoredSession();
+
+    document.getElementById("signupForm").addEventListener("submit", async event => {
+      event.preventDefault();
+
+      const name = document.getElementById("signupName").value.trim();
+      const email = document.getElementById("signupEmail").value.trim();
+      const goal = document.getElementById("signupGoal").value.trim();
+      const password = document.getElementById("signupPassword").value.trim();
+      const status = document.getElementById("signupStatus");
+      const submitBtn = event.target.querySelector("button[type='submit']");
+      const savedUser = getStoredUser();
+
+      if (isEditMode() && (!savedUser || !savedUser.id)) {
+        status.textContent = "Please log in again before editing your profile.";
+        return;
+      }
+
+      if (!isEditMode() && (!name || !email || !goal || !password)) {
+        status.textContent = "Please fill in every field before continuing.";
+        return;
+      }
+
+      if (isEditMode() && (!name || !email || !goal)) {
+        status.textContent = "Name, email, and learning goal are required.";
+        return;
+      }
+
+      submitBtn.disabled = true;
+      status.textContent = isEditMode() ? "Saving profile..." : "Creating account...";
+
+      try {
+        const response = isEditMode()
+          ? await fetch(`${API_BASE}/user/profile/${savedUser.id}`, {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              name,
+              goal,
+              selectedLanguage: selectedLang
+            })
+          })
+          : await fetch(`${API_BASE}/auth/signup`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              name,
+              email,
+              password,
+              goal,
+              selectedLanguage: selectedLang
+            })
+          });
+
+        const payload = await response.json();
+
+        if (!response.ok) {
+          status.textContent = payload.error || (isEditMode() ? "Profile update failed. Please try again." : "Signup failed. Please try again.");
+          submitBtn.disabled = false;
+          return;
+        }
+
+        localStorage.setItem("languageCompanionUser", JSON.stringify({
+          id: payload.user.id,
+          name: payload.user.name,
+          email: payload.user.email,
+          role: payload.user.role || "user",
+          goal: payload.user.goal || "Daily conversation practice",
+          joinedAt: payload.user.created_at
+        }));
+        localStorage.setItem("languageCompanionSession", "active");
+        localStorage.setItem("selectedLanguage", selectedLang);
+
+        status.textContent = isEditMode()
+          ? "Profile updated. Taking you back to your dashboard..."
+          : "Profile created. Taking you to your dashboard...";
+        window.setTimeout(() => {
+          goToDashboard();
+        }, 500);
+      } catch (error) {
+        status.textContent = "Cannot reach backend. Make sure `npm run dev` is still running.";
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+
+</html>

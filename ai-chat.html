@@ -1,0 +1,1931 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Language Companion</title>
+  <link rel="stylesheet" href="assets/css/style.css">
+  <script src="data.js"></script>
+  <script src="progress.js"></script>
+</head>
+
+<body class="ai-chat-page">
+
+  <div class="ai-shell">
+    <aside class="ai-sidebar">
+      <a href="dashboard.html" class="back-btn" id="aiBackBtn">Back to Dashboard</a>
+
+      <div class="ai-hero">
+        <p class="ai-kicker">AI Language Companion</p>
+        <h1 id="aiTitle">Practice with your AI coach</h1>
+        <p class="ai-subtitle" id="aiSubtitle">Practice short real-life conversations with simple feedback that fits your level.</p>
+      </div>
+
+      <div class="ai-context-card">
+        <p class="selector-label">Your Session</p>
+        <div class="ai-context-chips">
+          <span class="ai-chip" id="langChip">Language</span>
+          <span class="ai-chip" id="categoryChip">Category</span>
+          <span class="ai-chip" id="levelChip">Level</span>
+          <span class="ai-chip" id="modeChip">Mode</span>
+        </div>
+      </div>
+
+      <div class="ai-panel">
+        <div class="ai-panel-head">
+          <h2>Scenario</h2>
+          <span id="scenarioTag">Warm-up</span>
+        </div>
+        <div class="scenario-list" id="scenarioList"></div>
+      </div>
+
+      <div class="ai-panel">
+        <div class="ai-panel-head">
+          <h2>Today's Focus</h2>
+        </div>
+        <ul class="ai-goals" id="sessionGoals"></ul>
+      </div>
+
+      <div class="ai-panel">
+        <div class="ai-panel-head">
+          <h2>Words to Revise</h2>
+          <span id="weakWordsCount">0 tracked</span>
+        </div>
+        <div class="weak-word-list" id="weakWordList"></div>
+      </div>
+    </aside>
+
+    <main class="ai-main">
+      <section class="ai-stage-card">
+        <div class="stage-header">
+          <div>
+            <p class="ai-kicker">Active Simulation</p>
+            <h2 id="stageTitle">Cafe conversation</h2>
+          </div>
+          <div class="stage-badges">
+            <span class="stage-badge live">Live Coaching</span>
+            <span class="stage-badge" id="voiceStateBadge">Voice ready</span>
+          </div>
+        </div>
+
+        <p class="stage-description" id="stageDescription">Order politely, respond to simple questions, and stay inside your selected category.</p>
+
+        <div class="stage-metrics">
+          <div class="stage-metric">
+            <span class="metric-label">Target skill</span>
+            <strong id="targetSkill">Listening and response</strong>
+          </div>
+          <div class="stage-metric">
+            <span class="metric-label">AI voice</span>
+            <strong>Friendly tutor</strong>
+          </div>
+          <div class="stage-metric">
+            <span class="metric-label">Focus words</span>
+            <strong id="focusWordsMetric">3 weak words</strong>
+          </div>
+        </div>
+      </section>
+
+      <section class="ai-quick-start">
+        <div class="quick-start-card">
+          <strong>1. Pick a scenario</strong>
+          <span>Choose a simple situation like greeting, market, bus stop, or school.</span>
+        </div>
+        <div class="quick-start-card">
+          <strong>2. Tap Generate Prompt</strong>
+          <span>Start with a ready-made sentence if you are not sure what to say first.</span>
+        </div>
+        <div class="quick-start-card">
+          <strong>3. Keep replies short</strong>
+          <span>Short sentences are fine. The AI coach will help you grow them step by step.</span>
+        </div>
+      </section>
+
+      <section class="chat-layout">
+        <div class="chat-panel">
+          <div class="chat-toolbar">
+            <div class="chat-channel-toggle">
+              <button class="channel-btn active" type="button" data-channel="text">Text</button>
+              <button class="channel-btn" type="button" data-channel="voice">Voice</button>
+              <button class="channel-btn" type="button" data-channel="hybrid">Hybrid</button>
+            </div>
+            <button class="ghost-btn" type="button" id="generatePromptBtn">Generate Prompt</button>
+          </div>
+
+          <div class="chat-tip-bar">
+            <span class="tip-chip">Best for low data: Text mode</span>
+            <span class="tip-chip">Best for beginners: Generate Prompt</span>
+          </div>
+
+          <div class="chat-thread" id="chatThread">
+            <article class="message message-ai">
+              <div class="message-meta">
+                <span>AI Coach</span>
+                <span>Now</span>
+              </div>
+              <p id="openingAiMessage">Welcome. I will guide this practice using your current level, category, and weak words.</p>
+            </article>
+
+            <article class="message message-user">
+              <div class="message-meta">
+                <span>You</span>
+                <span>Draft</span>
+              </div>
+              <p>Can we practice a short real-life conversation first?</p>
+            </article>
+          </div>
+
+          <div class="chat-compose">
+            <div class="compose-tools">
+              <button class="ghost-btn" type="button">Attach audio</button>
+              <button class="ghost-btn" type="button">Use weak word</button>
+              <button class="ghost-btn" type="button">Simplify draft</button>
+            </div>
+            <textarea id="chatInput" placeholder="Type a short sentence here. Example: Good morning. My name is Paul."></textarea>
+            <div class="compose-actions">
+              <button class="ghost-btn" type="button">Save</button>
+              <button class="primary-btn" type="button" id="sendMessageBtn">Send</button>
+            </div>
+            <p class="chat-helper-text" id="chatHelperText">This is a mocked AI flow for now. It simulates what a future backend response will feel like.</p>
+          </div>
+        </div>
+
+        <div class="coach-panel">
+          <div class="coach-card">
+            <div class="ai-panel-head">
+              <h2>Voice Simulation</h2>
+              <span>Optional</span>
+            </div>
+            <div class="voice-meter">
+              <div class="voice-bar active"></div>
+              <div class="voice-bar"></div>
+              <div class="voice-bar active"></div>
+              <div class="voice-bar"></div>
+              <div class="voice-bar active"></div>
+            </div>
+            <div class="voice-controls">
+              <button class="voice-btn" type="button" id="startMicBtn">Start Mic</button>
+              <button class="voice-btn secondary" type="button" id="playAiVoiceBtn">Play AI Voice</button>
+            </div>
+            <p class="voice-status" id="voiceStatusText">Mic is off. You can stay in text mode or try a mocked speaking turn.</p>
+            <p class="coach-note">Use text mode if data is limited. Voice can stay optional while learners build confidence.</p>
+          </div>
+
+          <div class="coach-card">
+            <div class="ai-panel-head">
+              <h2>AI Feedback</h2>
+              <span>Real-time</span>
+            </div>
+            <div class="feedback-stack">
+              <div class="feedback-item">
+                <span class="feedback-label">Voice Score</span>
+                <strong id="pronunciationStatus">Ready for scoring</strong>
+              </div>
+              <div class="feedback-item">
+                <span class="feedback-label">Better Sentence</span>
+                <strong id="correctionHint">AI will suggest a cleaner version of your sentence here.</strong>
+              </div>
+              <div class="feedback-item">
+                <span class="feedback-label">What To Fix</span>
+                <strong id="grammarHint">AI will flag tense, tone, and sentence structure.</strong>
+              </div>
+              <div class="feedback-item">
+                <span class="feedback-label">Next Reply</span>
+                <strong id="confidenceHint">Supportive coaching enabled</strong>
+              </div>
+            </div>
+          </div>
+
+          <div class="coach-card">
+            <div class="ai-panel-head">
+              <h2>Suggested Actions</h2>
+            </div>
+            <div class="suggested-actions">
+              <button class="suggestion-btn" type="button" id="marketSceneBtn">Roleplay marketplace scene</button>
+              <button class="suggestion-btn" type="button" id="weakWordsBtn">Practice 3 weak words aloud</button>
+              <button class="suggestion-btn" type="button" id="slowCoachBtn">Ask AI to speak slower</button>
+              <button class="suggestion-btn" type="button" id="listeningModeBtn">Switch to listening mode</button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    let lang = params.get("lang") || localStorage.getItem("selectedLanguage") || "yoruba";
+    const selectedCategory = params.get("category") || localStorage.getItem("selectedCategory") || "all";
+    const selectedStudyMode = params.get("studyMode") || localStorage.getItem("selectedStudyMode") || "level";
+    const API_BASE_URL = "http://localhost:4000";
+
+    localStorage.setItem("selectedLanguage", lang);
+    localStorage.setItem("selectedCategory", selectedCategory);
+    localStorage.setItem("selectedStudyMode", selectedStudyMode);
+
+    const titles = {
+      hausa: "Hausa",
+      yoruba: "Yoruba",
+      igbo: "Igbo",
+      french: "French",
+      swahili: "Swahili",
+      zulu: "Zulu",
+      amharic: "Amharic"
+    };
+
+    const scenarioLibrary = {
+      greetings: [
+        {
+          id: "warm-up",
+          title: "Friendly greeting",
+          description: "Practice saying hello, asking how someone is, and ending politely.",
+          skill: "Openers and replies",
+          prompt: "Start with a short greeting and respond naturally when the AI asks how you are.",
+          steps: [
+            {
+              label: "Opening",
+              skill: "Greeting clearly",
+              description: "Begin politely and make the first contact feel natural.",
+              prompt: "Say hello and ask how the other person is doing."
+            },
+            {
+              label: "Response",
+              skill: "Keeping the exchange going",
+              description: "Answer a simple reply and ask one follow-up question.",
+              prompt: "Reply to the AI and add one small follow-up question."
+            },
+            {
+              label: "Wrap-up",
+              skill: "Closing warmly",
+              description: "End the greeting naturally and politely.",
+              prompt: "Close the exchange with a polite goodbye or kind closing."
+            }
+          ]
+        },
+        {
+          id: "new-friend",
+          title: "Meeting someone new",
+          description: "Introduce yourself and ask simple personal questions.",
+          skill: "Confidence and fluency",
+          prompt: "Tell the AI your name and ask one simple question back.",
+          steps: [
+            {
+              label: "Introduction",
+              skill: "Introducing yourself",
+              description: "Say who you are in a calm and simple way.",
+              prompt: "Introduce yourself in one short sentence."
+            },
+            {
+              label: "Connection",
+              skill: "Asking about someone else",
+              description: "Show interest by asking the AI one easy question.",
+              prompt: "Ask where the other person is from or how they are doing."
+            },
+            {
+              label: "Confidence close",
+              skill: "Ending naturally",
+              description: "Finish the exchange with confidence and warmth.",
+              prompt: "End the conversation with a short friendly close."
+            }
+          ]
+        },
+        {
+          id: "family-visit",
+          title: "Family visit",
+          description: "Greet someone at home and ask about family or who is around.",
+          skill: "Warm home conversation",
+          prompt: "Greet the AI and ask who is at home or how the family is doing.",
+          steps: [
+            {
+              label: "Arrival",
+              skill: "Greeting at home",
+              description: "Start with a respectful greeting as if you have just arrived.",
+              prompt: "Greet the person at home and say you have arrived."
+            },
+            {
+              label: "Family question",
+              skill: "Asking about people",
+              description: "Ask who is at home or how family members are doing.",
+              prompt: "Ask about the family or who is at home."
+            },
+            {
+              label: "Warm close",
+              skill: "Ending kindly",
+              description: "End with a warm final sentence.",
+              prompt: "Close the home visit politely."
+            }
+          ]
+        },
+        {
+          id: "phone-call",
+          title: "Short phone call",
+          description: "Answer a simple call, greet politely, and ask one question.",
+          skill: "Simple spoken exchange",
+          prompt: "Begin like you are answering a short phone call.",
+          steps: [
+            {
+              label: "Answer",
+              skill: "Starting clearly",
+              description: "Answer the call and greet politely.",
+              prompt: "Answer the call with a short greeting."
+            },
+            {
+              label: "Purpose",
+              skill: "Finding the reason",
+              description: "Ask why the person called or what they need.",
+              prompt: "Ask one simple question about the call."
+            },
+            {
+              label: "End call",
+              skill: "Closing simply",
+              description: "End the phone call in a natural way.",
+              prompt: "Finish the call politely."
+            }
+          ]
+        }
+      ],
+      courtesy: [
+        {
+          id: "help-request",
+          title: "Asking for help",
+          description: "Use please, sorry, and thank-you naturally in a support conversation.",
+          skill: "Polite expressions",
+          prompt: "Ask the AI for help and reply politely after each answer.",
+          steps: [
+            {
+              label: "Request",
+              skill: "Starting politely",
+              description: "Open with a respectful request for help.",
+              prompt: "Ask for help using please."
+            },
+            {
+              label: "Clarify",
+              skill: "Clarifying what you need",
+              description: "Explain your need in a clearer way after the AI responds.",
+              prompt: "Add one extra detail so the AI understands your request better."
+            },
+            {
+              label: "Thank and close",
+              skill: "Ending politely",
+              description: "Thank the other person and close respectfully.",
+              prompt: "Thank the AI and end the interaction warmly."
+            }
+          ]
+        },
+        {
+          id: "small-mistake",
+          title: "Fixing a mistake",
+          description: "Apologize, clarify yourself, and keep the conversation moving.",
+          skill: "Repairing conversation",
+          prompt: "Make a simple request, then correct yourself once.",
+          steps: [
+            {
+              label: "First try",
+              skill: "Trying a request",
+              description: "Say what you want to say, even if it is not perfect yet.",
+              prompt: "Make a short request."
+            },
+            {
+              label: "Repair",
+              skill: "Fixing yourself",
+              description: "Apologize and correct your message naturally.",
+              prompt: "Correct yourself once using sorry or excuse me."
+            },
+            {
+              label: "Recovery",
+              skill: "Continuing confidently",
+              description: "Keep speaking naturally after fixing the mistake.",
+              prompt: "Continue the conversation with one clear sentence."
+            }
+          ]
+        },
+        {
+          id: "directions-help",
+          title: "Asking for directions",
+          description: "Ask for the road, bus stop, or right way politely.",
+          skill: "Direction words",
+          prompt: "Ask the AI how to get somewhere using polite language.",
+          steps: [
+            {
+              label: "Ask directions",
+              skill: "Requesting help",
+              description: "Open politely and ask for the road or way.",
+              prompt: "Ask for the road or correct way."
+            },
+            {
+              label: "Clarify route",
+              skill: "Checking understanding",
+              description: "Ask the AI to repeat or explain more clearly.",
+              prompt: "Ask the AI to repeat or explain again."
+            },
+            {
+              label: "Thank politely",
+              skill: "Closing politely",
+              description: "Thank the person after getting help.",
+              prompt: "Say thank you and close politely."
+            }
+          ]
+        },
+        {
+          id: "clinic-help",
+          title: "Clinic support",
+          description: "Explain a simple need at a clinic and ask for help calmly.",
+          skill: "Support in important places",
+          prompt: "Tell the AI you need help at the clinic.",
+          steps: [
+            {
+              label: "Need help",
+              skill: "Explaining need",
+              description: "Say that you need help or want to see someone.",
+              prompt: "Say you need help at the clinic."
+            },
+            {
+              label: "Give detail",
+              skill: "Adding one useful detail",
+              description: "Say one more helpful detail about where you are going or why.",
+              prompt: "Add one more detail about your need."
+            },
+            {
+              label: "Close calmly",
+              skill: "Ending clearly",
+              description: "Finish respectfully and clearly.",
+              prompt: "Close the clinic conversation politely."
+            }
+          ]
+        }
+      ],
+      basics: [
+        {
+          id: "market",
+          title: "Market conversation",
+          description: "Ask for water, food, or common objects and answer follow-up questions.",
+          skill: "Daily vocabulary",
+          prompt: "Ask for one item, ask the price, then respond to a simple question.",
+          steps: [
+            {
+              label: "Ask",
+              skill: "Naming an item",
+              description: "Ask for one simple item clearly.",
+              prompt: "Ask for water, food, or another basic item."
+            },
+            {
+              label: "Negotiate",
+              skill: "Responding to follow-up questions",
+              description: "Answer a basic question about quantity, price, or preference.",
+              prompt: "Answer the AI when it asks a follow-up question."
+            },
+            {
+              label: "Finish",
+              skill: "Closing a practical exchange",
+              description: "End the market exchange politely.",
+              prompt: "Close the interaction with a polite final sentence."
+            }
+          ]
+        },
+        {
+          id: "home-routine",
+          title: "Home routine",
+          description: "Talk about home, school, work, or a friend in short sentences.",
+          skill: "Everyday speaking",
+          prompt: "Describe where you are and what you are doing today.",
+          steps: [
+            {
+              label: "Where",
+              skill: "Talking about place",
+              description: "Say where you are in a simple sentence.",
+              prompt: "Say where you are right now."
+            },
+            {
+              label: "What",
+              skill: "Talking about actions",
+              description: "Add what you are doing or what your routine is.",
+              prompt: "Say what you are doing today."
+            },
+            {
+              label: "Expand",
+              skill: "Adding a detail",
+              description: "Add one detail about a friend, school, or work.",
+              prompt: "Add one more detail to make your answer richer."
+            }
+          ]
+        },
+        {
+          id: "bus-stop",
+          title: "Bus stop conversation",
+          description: "Ask about the bus, money, and where the bus is going.",
+          skill: "Travel basics",
+          prompt: "Ask the AI about a bus and where it is going.",
+          steps: [
+            {
+              label: "Ask bus",
+              skill: "Travel question",
+              description: "Ask about the bus or bus stop in a simple way.",
+              prompt: "Ask about the bus or where it stops."
+            },
+            {
+              label: "Ask price",
+              skill: "Using money words",
+              description: "Ask about the fare or say how much money you have.",
+              prompt: "Ask about the price or fare."
+            },
+            {
+              label: "Travel close",
+              skill: "Ending a travel exchange",
+              description: "Finish the travel conversation simply.",
+              prompt: "Close the bus conversation politely."
+            }
+          ]
+        },
+        {
+          id: "classroom",
+          title: "Classroom practice",
+          description: "Talk to a teacher about a book, school, or lesson.",
+          skill: "School conversation",
+          prompt: "Speak to the AI like you are in class or talking to a teacher.",
+          steps: [
+            {
+              label: "Greet teacher",
+              skill: "Respectful opening",
+              description: "Start with a respectful greeting for a teacher or class.",
+              prompt: "Greet the teacher or class politely."
+            },
+            {
+              label: "Ask about lesson",
+              skill: "Talking about school",
+              description: "Ask about the book, lesson, or school day.",
+              prompt: "Ask one question about school or the lesson."
+            },
+            {
+              label: "Finish class",
+              skill: "Ending clearly",
+              description: "End the exchange respectfully.",
+              prompt: "Close the classroom exchange politely."
+            }
+          ]
+        }
+      ],
+      all: [
+        {
+          id: "coach-mix",
+          title: "Mixed conversation",
+          description: "The AI mixes greetings, polite phrases, and daily vocabulary in one guided chat.",
+          skill: "Adaptive conversation",
+          prompt: "Follow the AI through a short everyday conversation and stay relaxed.",
+          steps: [
+            {
+              label: "Warm-up",
+              skill: "Starting smoothly",
+              description: "Begin with a greeting and settle into the scene.",
+              prompt: "Start with a relaxed greeting."
+            },
+            {
+              label: "Main turn",
+              skill: "Responding naturally",
+              description: "Handle a real everyday question using your selected category.",
+              prompt: "Respond to the AI using one useful detail."
+            },
+            {
+              label: "Confidence finish",
+              skill: "Ending with confidence",
+              description: "Wrap up the exchange with a natural close.",
+              prompt: "Finish the scene with a confident final line."
+            }
+          ]
+        },
+        {
+          id: "confidence-builder",
+          title: "Confidence builder",
+          description: "A low-pressure back-and-forth that adapts to your current level.",
+          skill: "Natural speaking",
+          prompt: "Reply with short phrases and let the AI build up the challenge.",
+          steps: [
+            {
+              label: "Easy start",
+              skill: "Beginning without pressure",
+              description: "Start with a simple and safe answer.",
+              prompt: "Give a short first answer."
+            },
+            {
+              label: "Stretch",
+              skill: "Adding one more layer",
+              description: "Try a slightly richer answer than before.",
+              prompt: "Answer again with one more detail."
+            },
+            {
+              label: "Finish strong",
+              skill: "Ending with confidence",
+              description: "End the mini-conversation clearly and calmly.",
+              prompt: "Give one final confident reply."
+            }
+          ]
+        },
+        {
+          id: "daily-support",
+          title: "Daily life support",
+          description: "Mix home, transport, help, and school in one easier guided chat.",
+          skill: "Practical conversation",
+          prompt: "Follow the AI through a short everyday situation and answer with simple details.",
+          steps: [
+            {
+              label: "Start easy",
+              skill: "Starting calmly",
+              description: "Begin with one short answer.",
+              prompt: "Reply with one short sentence."
+            },
+            {
+              label: "Add detail",
+              skill: "Building answers",
+              description: "Add one more useful detail to your answer.",
+              prompt: "Answer again with one more detail."
+            },
+            {
+              label: "Finish clearly",
+              skill: "Confident close",
+              description: "End the short scene clearly.",
+              prompt: "Finish the scene with one clear final reply."
+            }
+          ]
+        }
+      ]
+    };
+
+    function formatCategoryName(category) {
+      if (category === "all") return "All Categories";
+      return category.charAt(0).toUpperCase() + category.slice(1);
+    }
+
+    const totalDeckWords = typeof getDeckForLanguage === "function"
+      ? getDeckForLanguage(lang, selectedCategory).length
+      : 0;
+    const stats = typeof getDashboardStats === "function"
+      ? getDashboardStats(lang, totalDeckWords)
+      : { level: "Starter" };
+    const weakWords = typeof getDifficultWords === "function"
+      ? getDifficultWords(lang).slice(0, 5)
+      : [];
+    const activeScenarios = scenarioLibrary[selectedCategory] || scenarioLibrary.all;
+    let activeScenario = activeScenarios[0];
+    let simulatedTurnCount = 0;
+    let coachSpeechMode = "normal";
+    let activeChannelMode = "text";
+    let listeningModeEnabled = false;
+    let activeScenarioTargets = [];
+    let mockMicActive = false;
+    let mockAiVoicePlaying = false;
+    let conversationHistory = [
+      {
+        role: "assistant",
+        type: "reply",
+        text: "Welcome. I will guide this practice using your current level, category, and weak words."
+      },
+      {
+        role: "user",
+        type: "message",
+        text: "Can we practice a short real-life conversation first?"
+      },
+      {
+        role: "assistant",
+        type: "reply",
+        text: "Yes. Let us start slowly and make it feel like a real conversation."
+      }
+    ];
+    let scenarioProgressStep = 1;
+
+    document.getElementById("aiBackBtn").href =
+      `dashboard.html?lang=${lang}&category=${selectedCategory}&studyMode=${selectedStudyMode}`;
+    document.getElementById("aiTitle").textContent =
+      `${titles[lang] || "Language"} AI Practice Studio`;
+    document.getElementById("aiSubtitle").textContent =
+      `Practice ${formatCategoryName(selectedCategory).toLowerCase()} conversations in ${selectedStudyMode === "adaptive" ? "Adaptive" : "My Level"} mode with short, guided replies.`;
+
+    document.getElementById("langChip").textContent = titles[lang] || "Language";
+    document.getElementById("categoryChip").textContent = formatCategoryName(selectedCategory);
+    document.getElementById("levelChip").textContent = stats.level;
+    document.getElementById("modeChip").textContent = selectedStudyMode === "adaptive" ? "Adaptive" : "My Level";
+    document.getElementById("voiceStateBadge").textContent = "Voice ready";
+
+    function getStoredUserProfile() {
+      try {
+        return JSON.parse(localStorage.getItem("languageCompanionUser")) || null;
+      } catch (error) {
+        return null;
+      }
+    }
+
+    function getActiveUserId() {
+      const user = getStoredUserProfile();
+      return user && user.id ? user.id : null;
+    }
+
+    function escapeHtml(text) {
+      return text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    function getCurrentTimeLabel() {
+      return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    }
+
+    function scrollThreadToBottom() {
+      const thread = document.getElementById("chatThread");
+      thread.scrollTop = thread.scrollHeight;
+    }
+
+    function appendMessage(author, body, kind = "ai") {
+      const thread = document.getElementById("chatThread");
+      const article = document.createElement("article");
+      article.className = `message ${kind === "user" ? "message-user" : "message-ai"}`;
+
+      if (kind === "feedback") {
+        article.classList.add("feedback-message");
+      }
+
+      article.innerHTML = `
+        <div class="message-meta">
+          <span>${escapeHtml(author)}</span>
+          <span>${getCurrentTimeLabel()}</span>
+        </div>
+        <p>${escapeHtml(body)}</p>
+      `;
+
+      thread.appendChild(article);
+      scrollThreadToBottom();
+    }
+
+    function rememberConversationTurn(role, text, type = "message") {
+      conversationHistory.push({ role, text, type });
+
+      if (conversationHistory.length > 8) {
+        conversationHistory = conversationHistory.slice(-8);
+      }
+    }
+
+    function getScenarioStepData(scenario, stepNumber = 1) {
+      const steps = scenario.steps || [];
+      return steps[Math.min(Math.max(stepNumber - 1, 0), Math.max(steps.length - 1, 0))] || {
+        label: "Flow",
+        skill: scenario.skill,
+        description: scenario.description,
+        prompt: scenario.prompt
+      };
+    }
+
+    function buildAiRequestPayload(userMessage) {
+      return {
+        language: lang,
+        category: selectedCategory,
+        level: stats.level,
+        studyMode: selectedStudyMode,
+        scenario: {
+          id: activeScenario.id,
+          title: activeScenario.title,
+          skill: activeScenario.skill,
+          step: getScenarioStepData(activeScenario, scenarioProgressStep)
+        },
+        weakWords: weakWords.map(word => ({
+          word: word.word,
+          meaning: word.meaning
+        })),
+        targetWords: activeScenarioTargets.map(word => ({
+          word: word.word,
+          meaning: word.meaning
+        })),
+        currentTargetWord: getCurrentScenarioTargetWord(userMessage),
+        learnerMessage: userMessage.trim(),
+        conversationHistory: conversationHistory,
+        scenarioProgress: {
+          currentStep: scenarioProgressStep,
+          totalPlannedSteps: 3
+        }
+      };
+    }
+
+    function getCategoryDeckForChat() {
+      if (typeof getDeckForLanguage === "function") {
+        return getDeckForLanguage(lang, selectedCategory);
+      }
+
+      return [];
+    }
+
+    function findWordByMeaning(labels) {
+      const deck = getCategoryDeckForChat();
+      const targetLabels = Array.isArray(labels) ? labels : [labels];
+      const match = deck.find(card => targetLabels.includes(card.meaning));
+      return match ? match.word : null;
+    }
+
+    function learnerMessageContainsWord(message, candidateWord) {
+      if (!message || !candidateWord) return false;
+
+      const normalize = value => value
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
+
+      return normalize(message).includes(normalize(candidateWord));
+    }
+
+    function getMentionedCards(message) {
+      const deck = getCategoryDeckForChat();
+      return deck.filter(card => learnerMessageContainsWord(message, card.word));
+    }
+
+    function learnerUsedMeaning(message, labels) {
+      const targetLabels = Array.isArray(labels) ? labels : [labels];
+      return getMentionedCards(message).some(card => targetLabels.includes(card.meaning));
+    }
+
+    function getMentionedCardsFromHistory() {
+      const deck = getCategoryDeckForChat();
+
+      return deck.filter(card =>
+        conversationHistory.some(item =>
+          item.role === "user" && learnerMessageContainsWord(item.text || "", card.word)
+        )
+      );
+    }
+
+    function pickNextPromptWord(message, meanings) {
+      const targetMeanings = Array.isArray(meanings) ? meanings : [meanings];
+      const deck = getCategoryDeckForChat();
+
+      const nextCard = deck.find(card =>
+        targetMeanings.includes(card.meaning) &&
+        !learnerMessageContainsWord(message, card.word)
+      );
+
+      return nextCard ? nextCard.word : null;
+    }
+
+    function getScenarioMeaningTargets(scenarioId) {
+      const map = {
+        "warm-up": ["My name is...", "House / Home", "Friend"],
+        "new-friend": ["My name is...", "Friend", "School"],
+        "family-visit": ["House / Home", "Friend", "Food"],
+        "phone-call": ["Phone", "Friend", "Road / Way"],
+        "help-request": ["Help me", "Please", "I understand"],
+        "small-mistake": ["Sorry / Excuse me", "Repeat it", "I understand"],
+        "directions-help": ["Road / Way", "Bus", "Money"],
+        "clinic-help": ["Clinic / Hospital", "Help me", "Teacher"],
+        market: ["Water", "Food", "Money"],
+        "home-routine": ["House / Home", "Friend", "Work / Job"],
+        "bus-stop": ["Bus", "Road / Way", "Money"],
+        classroom: ["Teacher", "Book", "School"],
+        "coach-mix": ["Friend", "House / Home", "Food"],
+        "confidence-builder": ["How are you?", "Friend", "Work / Job"],
+        "daily-support": ["House / Home", "Bus", "Market"]
+      };
+
+      return map[scenarioId] || ["Friend", "House / Home", "Food"];
+    }
+
+    function uniqueCards(cards) {
+      const seen = new Set();
+
+      return cards.filter(card => {
+        const key = `${card.word}::${card.meaning}`;
+
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    }
+
+    function buildScenarioTargetWords(scenarioId) {
+      const deck = getCategoryDeckForChat();
+      const desiredMeanings = getScenarioMeaningTargets(scenarioId);
+      const weakWordMap = new Map(weakWords.map(word => [`${word.word}::${word.meaning}`, word]));
+
+      const matchingDeckCards = desiredMeanings
+        .map(meaning => deck.find(card => card.meaning === meaning))
+        .filter(Boolean);
+
+      const matchingWeakWords = desiredMeanings
+        .map(meaning => {
+          const deckCard = deck.find(card => card.meaning === meaning);
+          return deckCard ? weakWordMap.get(`${deckCard.word}::${deckCard.meaning}`) : null;
+        })
+        .filter(Boolean);
+
+      return uniqueCards([...matchingWeakWords, ...matchingDeckCards]).slice(0, 4);
+    }
+
+    function getCurrentScenarioTargetWord(latestMessage = "") {
+      if (!activeScenarioTargets.length) {
+        return null;
+      }
+
+      const usedCards = getMentionedCardsFromHistory();
+      const usedKeys = new Set(usedCards.map(card => `${card.word}::${card.meaning}`));
+
+      if (latestMessage) {
+        getMentionedCards(latestMessage).forEach(card => {
+          usedKeys.add(`${card.word}::${card.meaning}`);
+        });
+      }
+
+      return activeScenarioTargets.find(card => !usedKeys.has(`${card.word}::${card.meaning}`)) || activeScenarioTargets[0];
+    }
+
+    function setVoiceStatus(text) {
+      document.getElementById("voiceStatusText").textContent = text;
+    }
+
+    function updateVoiceMeter(mode = "idle") {
+      const meter = document.querySelector(".voice-meter");
+      meter.classList.remove("listening", "speaking");
+
+      if (mode === "listening") {
+        meter.classList.add("listening");
+      } else if (mode === "speaking") {
+        meter.classList.add("speaking");
+      }
+    }
+
+    function getMockVoicePrompt() {
+      const template = getScenarioPromptTemplates(lang)[activeScenario.id];
+      const targetWord = getCurrentScenarioTargetWord();
+
+      if (targetWord) {
+        return `${template || activeScenario.prompt} Try to use ${targetWord.word}.`;
+      }
+
+      return template || activeScenario.prompt;
+    }
+
+    function getMockLearnerSpeechLine() {
+      const targetWord = getCurrentScenarioTargetWord();
+      const template = getScenarioPromptTemplates(lang)[activeScenario.id];
+
+      if (targetWord) {
+        return `${template || ""} ${targetWord.word}`.trim();
+      }
+
+      return template || activeScenario.prompt;
+    }
+
+    function learnerMentionedName(message, currentLang) {
+      const normalized = (message || "").toLowerCase();
+      const namePatterns = {
+        hausa: ["suna na", "sunana"],
+        yoruba: ["oruko mi ni", "oruko mi"],
+        igbo: ["aha m bu", "aha m"],
+        french: ["je m'appelle", "mon nom est"],
+        swahili: ["jina langu ni", "mimi naitwa"],
+        zulu: ["igama lami ngu"],
+        amharic: ["simh", "sime"]
+      };
+
+      return (namePatterns[currentLang] || ["my name is"]).some(pattern =>
+        normalized.includes(pattern)
+      );
+    }
+
+    function extractLearnerName(message, currentLang) {
+      const raw = (message || "").trim();
+      const normalized = raw.toLowerCase();
+      const markers = {
+        hausa: ["suna na", "sunana"],
+        yoruba: ["oruko mi ni", "oruko mi"],
+        igbo: ["aha m bu", "aha m"],
+        french: ["je m'appelle", "mon nom est"],
+        swahili: ["jina langu ni", "mimi naitwa"],
+        zulu: ["igama lami ngu"],
+        amharic: ["simh", "sime"]
+      };
+
+      const languageMarkers = markers[currentLang] || ["my name is"];
+
+      for (const marker of languageMarkers) {
+        const index = normalized.indexOf(marker);
+
+        if (index !== -1) {
+          const extracted = raw.slice(index + marker.length).trim().split(/[.,!?]/)[0].trim();
+
+          if (extracted) {
+            return extracted.split(" ")[0];
+          }
+        }
+      }
+
+      return "";
+    }
+
+    function getLanguageConversationPhrases(currentLang) {
+      const phraseMap = {
+        hausa: {
+          hello: "Ina kwana",
+          askHowAreYou: "Lafiya lau?",
+          niceToMeetYou: "Na ji dadin haduwa da kai",
+          askHome: "Kana gida?",
+          thankYou: "Na gode",
+          goodbye: "Sai an jima",
+          askName: "Menene sunanka?"
+        },
+        yoruba: {
+          hello: "E kaaro",
+          askHowAreYou: "Bawo ni?",
+          niceToMeetYou: "Inu mi dun lati pade e",
+          askHome: "Se o wa nile?",
+          thankYou: "O se",
+          goodbye: "Odabo",
+          askName: "Kini oruko re?"
+        },
+        igbo: {
+          hello: "Ututu oma",
+          askHowAreYou: "Kedu?",
+          niceToMeetYou: "Obi di m uto izute gi",
+          askHome: "I no n'ulo?",
+          thankYou: "Daalụ",
+          goodbye: "Ka o di",
+          askName: "Kedu aha gi?"
+        },
+        french: {
+          hello: "Bonjour",
+          askHowAreYou: "Comment ça va ?",
+          niceToMeetYou: "Enchanté de te rencontrer",
+          askHome: "Tu es à la maison ?",
+          thankYou: "Merci",
+          goodbye: "Au revoir",
+          askName: "Comment tu t'appelles ?"
+        },
+        swahili: {
+          hello: "Habari ya asubuhi",
+          askHowAreYou: "Habari yako?",
+          niceToMeetYou: "Nimefurahi kukutana nawe",
+          askHome: "Uko nyumbani?",
+          thankYou: "Asante",
+          goodbye: "Kwaheri",
+          askName: "Jina lako nani?"
+        },
+        zulu: {
+          hello: "Sawubona",
+          askHowAreYou: "Unjani?",
+          niceToMeetYou: "Kuhle ukukwazi",
+          askHome: "Usekhaya?",
+          thankYou: "Ngiyabonga",
+          goodbye: "Hamba kahle",
+          askName: "Ungubani igama lakho?"
+        },
+        amharic: {
+          hello: "Selam",
+          askHowAreYou: "Dehna neh?",
+          niceToMeetYou: "Des yibelagn",
+          askHome: "Bet wist neh?",
+          thankYou: "Ameseginalehu",
+          goodbye: "Dehna hunu",
+          askName: "Simh man new?"
+        }
+      };
+
+      return phraseMap[currentLang] || {
+        hello: "Hello",
+        askHowAreYou: "How are you?",
+        niceToMeetYou: "Nice to meet you",
+        askHome: "Are you at home?",
+        thankYou: "Thank you",
+        goodbye: "Goodbye",
+        askName: "What is your name?"
+      };
+    }
+
+    function getScenarioPromptTemplates(currentLang) {
+      const templates = {
+        hausa: {
+          "warm-up": "Ina kwana. Suna na Paul.",
+          "new-friend": "Sannu. Suna na Paul. Kai fa?",
+          "family-visit": "Ina kwana. Ina gida. Yaya iyali?",
+          "phone-call": "Sannu. Wa ke magana?",
+          "help-request": "Don Allah, zan so taimako.",
+          "small-mistake": "Yi hakuri, ina son gyara maganata.",
+          "directions-help": "Don Allah, ina hanyar kasuwa?",
+          "clinic-help": "Don Allah, ina bukatar taimako a asibiti.",
+          market: "Ina son ruwa. Nawa ne?",
+          "home-routine": "Ina gida yau. Ina hutawa.",
+          "bus-stop": "Don Allah, mota bas zuwa kasuwa tana ina?",
+          "classroom": "Ina kwana malami. Ina da littafi.",
+          "daily-support": "Ina gida, amma zan je kasuwa daga baya."
+        },
+        yoruba: {
+          "warm-up": "E kaaro. Oruko mi ni Paul.",
+          "new-friend": "Bawo ni. Oruko mi ni Paul. Iwo nko?",
+          "family-visit": "E kaaro. Mo wa nile. Bawo ni idile?",
+          "phone-call": "Alo, e kaaro. Ta ni yen?",
+          "help-request": "Jowo, mo nilo iranlowo.",
+          "small-mistake": "E ma binu, je ki n tun so.",
+          "directions-help": "Jowo, ona wo lo lo si oja?",
+          "clinic-help": "Jowo, mo nilo iranlowo ni ile iwosan.",
+          market: "Mo fe omi. Elo ni?",
+          "home-routine": "Mo wa nile loni. Mo n sinmi.",
+          "bus-stop": "Jowo, bosi si oja wa nibo?",
+          "classroom": "E kaaro oluko. Mo ni iwe mi.",
+          "daily-support": "Mo wa nile bayi sugbon emi yoo lo si oja."
+        },
+        igbo: {
+          "warm-up": "Ututu oma. Aha m bu Paul.",
+          "new-friend": "Kedu. Aha m bu Paul. Gini bu aha gi?",
+          "family-visit": "Ututu oma. Ano m n'ulo. Kedu ka ezinulo di?",
+          "phone-call": "Ndewo. Onye na-ekwu okwu?",
+          "help-request": "Biko, achoro m enyemaka.",
+          "small-mistake": "Ndo, ka m mezie okwu m.",
+          "directions-help": "Biko, ebee ka uzo ahia di?",
+          "clinic-help": "Biko, achoro m enyemaka n'ulo ogwu.",
+          market: "Achoro m mmiri. Ego ole ka o bu?",
+          "home-routine": "Ano m n'ulo taa. Ana m ezu ike.",
+          "bus-stop": "Biko, ebee ka bọs ga-akwụsị?",
+          "classroom": "Ututu oma onye nkuzi. Enwere m akwukwo.",
+          "daily-support": "Ano m n'ulo ma aga m ahia emechaa."
+        },
+        french: {
+          "warm-up": "Bonjour. Je m'appelle Paul.",
+          "new-friend": "Salut. Je m'appelle Paul. Et toi ?",
+          "family-visit": "Bonjour. Je suis à la maison. La famille va bien ?",
+          "phone-call": "Allô, bonjour. Qui parle ?",
+          "help-request": "S'il vous plaît, j'ai besoin d'aide.",
+          "small-mistake": "Pardon, je veux corriger ma phrase.",
+          "directions-help": "S'il vous plaît, où est la route du marché ?",
+          "clinic-help": "S'il vous plaît, j'ai besoin d'aide à la clinique.",
+          market: "Je veux de l'eau. C'est combien ?",
+          "home-routine": "Je suis à la maison aujourd'hui. Je me repose.",
+          "bus-stop": "S'il vous plaît, où est le bus pour le marché ?",
+          "classroom": "Bonjour professeur. J'ai mon livre.",
+          "daily-support": "Je suis à la maison mais je vais au marché plus tard."
+        },
+        swahili: {
+          "warm-up": "Habari ya asubuhi. Jina langu ni Paul.",
+          "new-friend": "Habari. Jina langu ni Paul. Na wewe je?",
+          "family-visit": "Habari. Niko nyumbani. Familia iko aje?",
+          "phone-call": "Halo, habari. Nani anaongea?",
+          "help-request": "Tafadhali, nahitaji msaada.",
+          "small-mistake": "Samahani, nataka kurekebisha sentensi yangu.",
+          "directions-help": "Tafadhali, njia ya soko ni ipi?",
+          "clinic-help": "Tafadhali, nahitaji msaada kliniki.",
+          market: "Nataka maji. Ni bei gani?",
+          "home-routine": "Niko nyumbani leo. Ninapumzika.",
+          "bus-stop": "Tafadhali, basi la kwenda sokoni liko wapi?",
+          "classroom": "Habari mwalimu. Nina kitabu changu.",
+          "daily-support": "Niko nyumbani lakini nitaenda sokoni baadaye."
+        },
+        zulu: {
+          "warm-up": "Sawubona. Igama lami nguPaul.",
+          "new-friend": "Sawubona. Igama lami nguPaul. Wena ungubani?",
+          "family-visit": "Sawubona. Ngisekhaya. Unjani umndeni?",
+          "phone-call": "Sawubona. Ubani lo okhuluma?",
+          "help-request": "Ngicela usizo.",
+          "small-mistake": "Uxolo, ngifuna ukulungisa amazwi ami.",
+          "directions-help": "Ngicela, ikuphi indlela eya emakethe?",
+          "clinic-help": "Ngicela usizo emtholampilo.",
+          market: "Ngifuna amanzi. Kubiza malini?",
+          "home-routine": "Ngisekhaya namhlanje. Ngiyaphumula.",
+          "bus-stop": "Ngicela, ibhasi eliya emakethe likuphi?",
+          "classroom": "Sawubona thisha. Nginencwadi yami.",
+          "daily-support": "Ngisekhaya kodwa ngizoya emakethe kamuva."
+        },
+        amharic: {
+          "warm-up": "Selam. Sime Paul new.",
+          "new-friend": "Selam. Sime Paul new. Ante man neh?",
+          "family-visit": "Selam. Bet wist negn. Beteseb dehna naw?",
+          "phone-call": "Halo, selam. Man naw?",
+          "help-request": "Ebakih, erdata ifeligalehu.",
+          "small-mistake": "Yiqirta, negeren lemastekatel ifeligalehu.",
+          "directions-help": "Ebakih, wede gebeya menged yet new?",
+          "clinic-help": "Ebakih, hakim bet erdata ifeligalehu.",
+          market: "Wuha ifeligalehu. Sint new?",
+          "home-routine": "Zare bet wist negn. Erif endehon al.",
+          "bus-stop": "Ebakih, wede gebeya autobus yet new?",
+          "classroom": "Selam memhir. Mets'hafe aleññ.",
+          "daily-support": "Bet wist negn gin behuala wede gebeya ehedalehu."
+        }
+      };
+
+      return templates[currentLang] || {};
+    }
+
+    function buildScenarioConversationReply(payload, stepInfo, focusWord) {
+      const learnerMessage = payload.learnerMessage;
+      const phrases = getLanguageConversationPhrases(payload.language);
+      const greetingWord = findWordByMeaning(["Hello", "Hello / Good morning", "Good morning"]) || phrases.hello;
+      const howAreYouWord = findWordByMeaning("How are you?") || phrases.askHowAreYou;
+      const thankYouWord = findWordByMeaning("Thank you") || phrases.thankYou;
+      const goodbyeWord = findWordByMeaning(["Goodbye", "Goodbye / Go well"]) || phrases.goodbye;
+      const waterWord = findWordByMeaning("Water");
+      const foodWord = findWordByMeaning("Food");
+      const homeWord = findWordByMeaning("House / Home");
+      const friendWord = findWordByMeaning("Friend");
+      const moneyWord = findWordByMeaning("Money");
+      const roadWord = findWordByMeaning("Road / Way");
+      const busWord = findWordByMeaning("Bus");
+      const phoneWord = findWordByMeaning("Phone");
+      const clinicWord = findWordByMeaning("Clinic / Hospital");
+      const teacherWord = findWordByMeaning("Teacher");
+
+      const supportTail = selectedStudyMode === "adaptive"
+        ? "I can also help by translating key parts if you need it."
+        : "Stay in the target language as much as you can.";
+      const speedTail = coachSpeechMode === "slow"
+        ? " I will speak more slowly and keep my sentences shorter."
+        : "";
+      const listeningTail = listeningModeEnabled
+        ? " I am in listening mode, so answer as if you are responding to speech."
+        : "";
+
+      switch (payload.scenario.id) {
+        case "warm-up":
+        case "new-friend":
+        case "family-visit":
+        case "phone-call":
+          if (stepInfo.label === "Opening") {
+            if (learnerMentionedName(payload.learnerMessage, payload.language)) {
+              const learnerName = extractLearnerName(payload.learnerMessage, payload.language);
+              const nextHomeWord = pickNextPromptWord(learnerMessage, "House / Home");
+              if (nextHomeWord) {
+                return `${greetingWord}${learnerName ? `, ${learnerName}` : ""}. ${phrases.askHome}${nextHomeWord ? ` Try to use "${nextHomeWord}" in your reply.` : ""} ${supportTail}${speedTail}${listeningTail}`;
+              }
+
+              const nextFriendWord = pickNextPromptWord(learnerMessage, "Friend");
+              return `${greetingWord}${learnerName ? `, ${learnerName}` : ""}. ${phrases.niceToMeetYou}. ${nextFriendWord ? `Tell me about your "${nextFriendWord}".` : "Tell me a little more about your day."} ${supportTail}${speedTail}${listeningTail}`;
+            }
+
+            return `${greetingWord}! ${phrases.askName} ${howAreYouWord} Tell me your name and one small thing about yourself. ${supportTail}${speedTail}${listeningTail}`;
+          }
+          if (stepInfo.label === "Arrival") {
+            return `${greetingWord}. ${phrases.askHome} Tell me who is at ${homeWord || "home"} with you.${speedTail}${listeningTail}`;
+          }
+          if (stepInfo.label === "Answer") {
+            return `${greetingWord}. ${phoneWord ? `I am calling on your "${phoneWord}".` : "I am calling you now."} Can you answer with one short sentence?${speedTail}${listeningTail}`;
+          }
+          if (stepInfo.label === "Family question") {
+            return `${phrases.hello}. Tell me about your ${friendWord || "friend"} or family at ${homeWord || "home"}.${speedTail}${listeningTail}`;
+          }
+          if (stepInfo.label === "Purpose") {
+            return `${phrases.hello}. Why are you calling today? Keep it short and clear.${speedTail}${listeningTail}`;
+          }
+          if (stepInfo.label === "Response" || stepInfo.label === "Connection") {
+            if (learnerUsedMeaning(learnerMessage, "House / Home")) {
+              const nextFriendWord = pickNextPromptWord(learnerMessage, "Friend");
+              return `${phrases.hello}, ${phrases.niceToMeetYou}. ${nextFriendWord ? `Who is with you and can you use "${nextFriendWord}"?` : "Who is with you there?"}${speedTail}${listeningTail}`;
+            }
+
+            if (learnerUsedMeaning(learnerMessage, "Friend")) {
+              const nextWorkWord = pickNextPromptWord(learnerMessage, "Work / Job") || pickNextPromptWord(learnerMessage, "School");
+              return `${phrases.hello}. ${nextWorkWord ? `What about "${nextWorkWord}" today?` : "What are you doing today?"}${speedTail}${listeningTail}`;
+            }
+
+            return `${phrases.hello}, ${phrases.niceToMeetYou}. ${phrases.askHome} Can you tell me about your ${friendWord || "friend"} or your day?${focusWord ? ` Try to use "${focusWord.word}" in your reply.` : ""}${speedTail}${listeningTail}`;
+          }
+          return `${thankYouWord}! ${goodbyeWord}. Before we end, give me one final confident sentence.${speedTail}${listeningTail}`;
+
+        case "help-request":
+        case "small-mistake":
+        case "directions-help":
+        case "clinic-help":
+          if (stepInfo.label === "Request" || stepInfo.label === "First try") {
+            return `${greetingWord || "Hello"}. Tell me what you need help with, and try to sound polite.${speedTail}${listeningTail}`;
+          }
+          if (stepInfo.label === "Ask directions") {
+            return `${greetingWord || "Hello"}. ${roadWord ? `Ask me about the "${roadWord}".` : "Ask me for the road."} ${busWord ? `You can also mention "${busWord}".` : ""}${speedTail}${listeningTail}`;
+          }
+          if (stepInfo.label === "Need help") {
+            return `${greetingWord || "Hello"}. ${clinicWord ? `Tell me why you are at the "${clinicWord}".` : "Tell me why you need help."}${speedTail}${listeningTail}`;
+          }
+          if (stepInfo.label === "Clarify" || stepInfo.label === "Repair") {
+            return `I understand. Can you say it again more clearly${focusWord ? ` and include "${focusWord.word}"` : ""}?${speedTail}${listeningTail}`;
+          }
+          if (stepInfo.label === "Clarify route") {
+            return `${phrases.hello}. Can you ask me to repeat the ${roadWord || "road"} or explain the ${busWord || "bus"} stop more clearly?${speedTail}${listeningTail}`;
+          }
+          if (stepInfo.label === "Give detail") {
+            return `${phrases.hello}. Add one more detail${clinicWord ? ` about the "${clinicWord}"` : ""} or who should help you.${speedTail}${listeningTail}`;
+          }
+          return `${thankYouWord || "Thank you"}. Now close the conversation politely in one sentence.${speedTail}${listeningTail}`;
+
+        case "market":
+        case "bus-stop":
+        case "classroom":
+          if (stepInfo.label === "Ask") {
+            if (learnerUsedMeaning(learnerMessage, "Water")) {
+              const nextFoodWord = pickNextPromptWord(learnerMessage, "Food");
+              return `${greetingWord}! Good choice. ${nextFoodWord ? `Do you also want "${nextFoodWord}"?` : "Do you want anything else?"}${speedTail}${listeningTail}`;
+            }
+
+            if (learnerUsedMeaning(learnerMessage, "Food")) {
+              const nextWaterWord = pickNextPromptWord(learnerMessage, "Water");
+              return `${greetingWord}! ${nextWaterWord ? `Do you also want "${nextWaterWord}"?` : "Do you want anything to drink?"}${speedTail}${listeningTail}`;
+            }
+
+            return `${greetingWord || "Hello"}! ${waterWord || "Water"} or ${foodWord || "Food"}? What do you want today?${speedTail}${listeningTail}`;
+          }
+          if (stepInfo.label === "Ask bus") {
+            return `${greetingWord || "Hello"}. ${busWord ? `Ask me where the "${busWord}" is going.` : "Ask me where the bus is going."} ${roadWord ? `You can also use "${roadWord}".` : ""}${speedTail}${listeningTail}`;
+          }
+          if (stepInfo.label === "Greet teacher") {
+            return `${greetingWord || "Hello"}. ${teacherWord ? `Greet the "${teacherWord}"` : "Greet the teacher"} and mention your ${findWordByMeaning("Book") || "book"}.${speedTail}${listeningTail}`;
+          }
+          if (stepInfo.label === "Negotiate") {
+            if (learnerUsedMeaning(learnerMessage, "Food") || learnerUsedMeaning(learnerMessage, "Water")) {
+              const nextHomeWord = pickNextPromptWord(learnerMessage, "House / Home");
+              return `Good choice. ${nextHomeWord ? `Is it for your "${nextHomeWord}" or for now?` : "Is it for now or for later?"}${speedTail}${listeningTail}`;
+            }
+
+            return `Good choice. Tell me a little more. Do you want more ${waterWord || "water"}, more ${foodWord || "food"}, or something for your ${homeWord || "home"}?${speedTail}${listeningTail}`;
+          }
+          if (stepInfo.label === "Ask price") {
+            return `${phrases.hello}. ${moneyWord ? `Ask about the "${moneyWord}" you need for the ${busWord || "bus"}.` : "Ask how much the bus costs."}${speedTail}${listeningTail}`;
+          }
+          if (stepInfo.label === "Ask about lesson") {
+            return `${phrases.hello}. ${teacherWord ? `Ask the "${teacherWord}" about your ${findWordByMeaning("Book") || "book"} or ${findWordByMeaning("School") || "school"}.` : "Ask about the lesson or school."}${speedTail}${listeningTail}`;
+          }
+          if (payload.scenario.id === "bus-stop") {
+            return `${thankYouWord || "Thank you"}. Finish the bus conversation politely.${speedTail}${listeningTail}`;
+          }
+          if (payload.scenario.id === "classroom") {
+            return `${thankYouWord || "Thank you"}. Finish the classroom exchange respectfully.${speedTail}${listeningTail}`;
+          }
+          return `${thankYouWord || "Thank you"}. Finish the market conversation politely.${speedTail}${listeningTail}`;
+
+        case "home-routine":
+          if (stepInfo.label === "Where") {
+            if (learnerUsedMeaning(learnerMessage, "House / Home")) {
+              const nextFriendWord = pickNextPromptWord(learnerMessage, "Friend");
+              return `${greetingWord || "Hello"}. ${nextFriendWord ? `Who is with you? Try to use "${nextFriendWord}".` : "Who is with you there?"}${speedTail}${listeningTail}`;
+            }
+
+            return `${greetingWord || "Hello"}. Where is your ${homeWord || "home"} or where are you right now?${speedTail}${listeningTail}`;
+          }
+          if (stepInfo.label === "What") {
+            if (learnerUsedMeaning(learnerMessage, "Friend")) {
+              const nextWorkWord = pickNextPromptWord(learnerMessage, "Work / Job") || pickNextPromptWord(learnerMessage, "School");
+              return `Good. ${nextWorkWord ? `Can you tell me about "${nextWorkWord}" today?` : "What are you doing today?"}${speedTail}${listeningTail}`;
+            }
+
+            if (learnerUsedMeaning(learnerMessage, ["Work / Job", "School"])) {
+              return `Nice. Can you add one more detail about your routine today?${speedTail}${listeningTail}`;
+            }
+
+            return `Good. What are you doing today with your ${friendWord || "friend"}, at ${homeWord || "home"}, or at work?${speedTail}${listeningTail}`;
+          }
+          return `Nice. Give me one final sentence with more detail${focusWord ? ` and try to include "${focusWord.word}"` : ""}.${speedTail}${listeningTail}`;
+
+        default:
+          if (stepInfo.label === "Warm-up" || stepInfo.label === "Easy start") {
+            return `${greetingWord || "Hello"}! Let us begin simply. Answer me with one short sentence.${speedTail}${listeningTail}`;
+          }
+          if (stepInfo.label === "Main turn" || stepInfo.label === "Stretch") {
+            return `Good. Now give me a slightly longer answer${focusWord ? ` and include "${focusWord.word}"` : ""}.${speedTail}${listeningTail}`;
+          }
+          return `${thankYouWord || "Thank you"}! ${goodbyeWord || "Goodbye"}. End this scene with one confident sentence.${speedTail}${listeningTail}`;
+      }
+    }
+
+    function buildMockAiResponse(payload) {
+      const trimmedMessage = payload.learnerMessage;
+      const focusWord = payload.currentTargetWord ||
+        payload.weakWords[simulatedTurnCount % Math.max(payload.weakWords.length, 1)] ||
+        payload.targetWords[0] ||
+        null;
+      const lastAssistantReply = [...payload.conversationHistory]
+        .reverse()
+        .find(item => item.role === "assistant" && item.type === "reply");
+      const stepInfo = payload.scenario.step;
+      const conversationReply = buildScenarioConversationReply(payload, stepInfo, focusWord);
+
+      const correction = trimmedMessage.length < 8
+        ? `Try a fuller sentence, for example: "${trimmedMessage} please" or "${trimmedMessage}, thank you."`
+        : `Smoother version: "${trimmedMessage.charAt(0).toUpperCase() + trimmedMessage.slice(1)}."`;
+
+      const explanation = focusWord
+        ? `Good job trying to respond. Your current target word is "${focusWord.word}" (${focusWord.meaning}), so try to use it naturally in your next reply.`
+        : `Good job trying to respond. The next improvement is to make the sentence sound a little more complete and confident.`;
+
+      const challenge = focusWord
+        ? `Next challenge: ${stepInfo.prompt} Also include "${focusWord.word}" while staying natural.`
+        : `Next challenge: ${stepInfo.prompt}`;
+      const memoryNote = lastAssistantReply
+        ? ` I still remember your last exchange, so keep the conversation flowing naturally.`
+        : "";
+
+      return {
+        reply: conversationReply + memoryNote,
+        feedback: {
+          correction: correction,
+          explanation: explanation,
+          challenge: challenge
+        },
+        meta: {
+          scenarioId: payload.scenario.id,
+          levelUsed: payload.level,
+          modeUsed: payload.studyMode,
+          scenarioStepUsed: payload.scenarioProgress.currentStep
+        }
+      };
+    }
+
+    function mockAiChatApi(payload) {
+      return new Promise(resolve => {
+        window.setTimeout(() => {
+          simulatedTurnCount += 1;
+          resolve(buildMockAiResponse(payload));
+        }, 700);
+      });
+    }
+
+    async function backendAiChatApi(payload) {
+      const userId = getActiveUserId();
+
+      if (!userId) {
+        return {
+          ok: false,
+          fallbackReason: "No backend user id found for AI chat."
+        };
+      }
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/ai/chat`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            userId: userId,
+            language: payload.language,
+            scenario: payload.scenario.id,
+            learnerMessage: payload.learnerMessage,
+            weakWords: payload.weakWords,
+            targetWords: payload.targetWords
+          })
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          return {
+            ok: false,
+            fallbackReason: result.error || "Backend chat request failed."
+          };
+        }
+
+        return {
+          ok: true,
+          data: result
+        };
+      } catch (error) {
+        return {
+          ok: false,
+          fallbackReason: "Backend is unavailable."
+        };
+      }
+    }
+
+    function renderAiResponse(response) {
+      appendMessage("AI Coach", response.reply, "ai");
+      rememberConversationTurn("assistant", response.reply, "reply");
+      updateCoachFeedback(response);
+    }
+
+    function showRequestPreview(payload) {
+      const summary = [
+        `Mock request ready`,
+        `language: ${payload.language}`,
+        `category: ${payload.category}`,
+        `level: ${payload.level}`,
+        `mode: ${payload.studyMode}`,
+        `history turns: ${payload.conversationHistory.length}`,
+        `scenario step: ${payload.scenarioProgress.currentStep}`
+      ].join(" • ");
+
+      setHelperText(`${summary}. This is the exact kind of data we will send to a real backend later.`);
+    }
+
+    function updateCoachFeedback(response) {
+      document.getElementById("correctionHint").textContent = response.feedback.correction;
+      document.getElementById("grammarHint").textContent = response.feedback.explanation;
+      document.getElementById("confidenceHint").textContent = response.feedback.challenge;
+      document.getElementById("pronunciationStatus").textContent =
+        selectedStudyMode === "adaptive"
+          ? "Adaptive speech scoring will guide easier and harder turns."
+          : "Level-matched speech scoring will stay focused.";
+    }
+
+    function refreshScenarioStage() {
+      const stepInfo = getScenarioStepData(activeScenario, scenarioProgressStep);
+      const targetSummary = activeScenarioTargets.length
+        ? activeScenarioTargets.map(card => card.word).join(" • ")
+        : "No target words yet";
+      document.getElementById("stageDescription").textContent = stepInfo.description;
+      document.getElementById("targetSkill").textContent = stepInfo.skill;
+      document.getElementById("focusWordsMetric").textContent = targetSummary;
+      document.getElementById("scenarioTag").textContent = `${activeScenario.title} • ${stepInfo.label}`;
+    }
+
+    function setHelperText(text) {
+      document.getElementById("chatHelperText").textContent = text;
+    }
+
+    function updateVoiceStateBadge() {
+      let badgeText = "Voice ready";
+
+      if (listeningModeEnabled && coachSpeechMode === "slow") {
+        badgeText = "Listening mode • Slow coach";
+      } else if (listeningModeEnabled) {
+        badgeText = "Listening mode";
+      } else if (coachSpeechMode === "slow") {
+        badgeText = "Slow coach";
+      }
+
+      document.getElementById("voiceStateBadge").textContent = badgeText;
+    }
+
+    function activateScenarioById(id) {
+      updateChannelButtons();
+      updateSuggestionStates();
+      updateVoiceStateBadge();
+      const categoryScenario = activeScenarios.find(item => item.id === id);
+
+      if (categoryScenario) {
+        activeScenario = categoryScenario;
+      } else {
+        const fallbackScenario =
+          scenarioLibrary.basics.find(item => item.id === id) ||
+          scenarioLibrary.all.find(item => item.id === id);
+
+        if (fallbackScenario) {
+          activeScenario = fallbackScenario;
+        }
+      }
+
+      document.querySelectorAll(".scenario-card").forEach(card => {
+        card.classList.toggle("active", card.textContent.includes(activeScenario.title));
+      });
+
+      applyScenario(activeScenario);
+    }
+
+    function updateChannelButtons() {
+      document.querySelectorAll(".channel-btn").forEach(button => {
+        button.classList.toggle("active", button.dataset.channel === activeChannelMode);
+      });
+    }
+
+    function updateSuggestionStates() {
+      document.getElementById("slowCoachBtn").classList.toggle("active", coachSpeechMode === "slow");
+      document.getElementById("listeningModeBtn").classList.toggle("active", listeningModeEnabled);
+      document.getElementById("marketSceneBtn").classList.toggle("active", activeScenario.id === "market");
+      document.getElementById("weakWordsBtn").classList.toggle(
+        "active",
+        document.getElementById("chatInput").value.includes("weak words")
+      );
+    }
+
+    function updateVoiceStateBadge() {
+      let badgeText = "Voice ready";
+
+      if (activeChannelMode === "hybrid") {
+        badgeText = coachSpeechMode === "slow" ? "Hybrid practice • Slow coach" : "Hybrid practice";
+      } else if (activeChannelMode === "voice") {
+        badgeText = coachSpeechMode === "slow" ? "Voice only • Slow coach" : "Voice only";
+      } else if (listeningModeEnabled && coachSpeechMode === "slow") {
+        badgeText = "Listening mode • Slow coach";
+      } else if (listeningModeEnabled) {
+        badgeText = "Listening mode";
+      } else if (coachSpeechMode === "slow") {
+        badgeText = "Slow coach";
+      }
+
+      document.getElementById("voiceStateBadge").textContent = badgeText;
+    }
+
+    function setChannelMode(nextMode) {
+      activeChannelMode = nextMode;
+      listeningModeEnabled = nextMode === "voice";
+      updateChannelButtons();
+      updateVoiceStateBadge();
+      updateSuggestionStates();
+
+      const helperTextByMode = {
+        text: "Text mode is active. Type naturally and the AI coach will keep the conversation moving.",
+        voice: "Voice mode is active. For now it is still mocked, but the AI will behave more like spoken practice.",
+        hybrid: "Hybrid mode is active. This previews a future mix of typed and spoken practice."
+      };
+
+      setHelperText(helperTextByMode[nextMode] || helperTextByMode.text);
+    }
+
+    function activateScenarioById(id) {
+      const categoryScenario = activeScenarios.find(item => item.id === id);
+
+      if (categoryScenario) {
+        activeScenario = categoryScenario;
+      } else {
+        const fallbackScenario =
+          scenarioLibrary.basics.find(item => item.id === id) ||
+          scenarioLibrary.all.find(item => item.id === id);
+
+        if (fallbackScenario) {
+          activeScenario = fallbackScenario;
+        }
+      }
+
+      document.querySelectorAll(".scenario-card").forEach(card => {
+        card.classList.toggle("active", card.textContent.includes(activeScenario.title));
+      });
+
+      updateChannelButtons();
+      updateSuggestionStates();
+      updateVoiceStateBadge();
+      applyScenario(activeScenario);
+    }
+
+    function handleSuggestedMarketplace() {
+      activateScenarioById("market");
+      setChannelMode("text");
+      document.getElementById("chatInput").value = getScenarioPromptTemplates(lang).market || "I want water. How much is it?";
+      setHelperText("Marketplace roleplay is now active. I also placed a starter line in the chat box so you can begin immediately.");
+      updateSuggestionStates();
+    }
+
+    function handleSuggestedWeakWords() {
+      const wordsToPractice = weakWords.slice(0, 3);
+
+      if (!wordsToPractice.length) {
+        setHelperText("There are no weak words yet, so this shortcut has nothing to pull in right now.");
+        return;
+      }
+
+      const prompt = wordsToPractice
+        .map(word => `${word.word} (${word.meaning})`)
+        .join(", ");
+
+      document.getElementById("chatInput").value =
+        `I want to practice these weak words in one short conversation: ${prompt}.`;
+      document.getElementById("focusWordsMetric").textContent = `${wordsToPractice.length} weak words queued`;
+      setHelperText("Your weakest tracked words were inserted into the prompt so the next AI turn can focus on them.");
+      updateSuggestionStates();
+    }
+
+    function handleSuggestedSlowCoach() {
+      coachSpeechMode = coachSpeechMode === "slow" ? "normal" : "slow";
+      updateVoiceStateBadge();
+      document.getElementById("confidenceHint").textContent =
+        coachSpeechMode === "slow"
+          ? "Slow coach is active. The AI will use shorter, clearer replies."
+          : "Supportive coaching enabled";
+      setHelperText(
+        coachSpeechMode === "slow"
+          ? "Slow coach is on. The AI will now answer with simpler, slower-feeling turns."
+          : "Slow coach is off. The AI is back to its normal pacing."
+      );
+      updateSuggestionStates();
+    }
+
+    function handleSuggestedListeningMode() {
+      setChannelMode(listeningModeEnabled ? "text" : "voice");
+      document.getElementById("chatInput").value = listeningModeEnabled
+        ? "I am ready. Please ask me a question and I will answer like I am listening to you speak."
+        : document.getElementById("chatInput").value;
+      setHelperText(
+        listeningModeEnabled
+          ? "Listening mode is on. The AI will phrase turns more like spoken prompts."
+          : "Listening mode is off. The AI is back to regular conversation mode."
+      );
+      updateSuggestionStates();
+    }
+
+    function handleChannelButtonClick(event) {
+      const nextMode = event.currentTarget.dataset.channel;
+      setChannelMode(nextMode);
+
+      if (nextMode === "voice") {
+        document.getElementById("chatInput").value =
+          "I am ready. Ask me a short question so I can answer like I am speaking with you.";
+      } else if (nextMode === "hybrid") {
+        document.getElementById("chatInput").value =
+          "Let us practice with short spoken-style answers and simple follow-up questions.";
+      }
+
+      updateSuggestionStates();
+    }
+
+    function handleMockMic() {
+      if (mockMicActive) {
+        mockMicActive = false;
+        updateVoiceMeter();
+        document.getElementById("startMicBtn").textContent = "Start Mic";
+        setVoiceStatus("Mic stopped. You can edit the draft in the text box before sending.");
+        return;
+      }
+
+      mockMicActive = true;
+      setChannelMode("voice");
+      updateVoiceMeter("listening");
+      document.getElementById("startMicBtn").textContent = "Stop Mic";
+      setVoiceStatus("Listening now. We are mocking speech capture and preparing a spoken-style draft for the learner.");
+
+      window.setTimeout(() => {
+        if (!mockMicActive) return;
+
+        const spokenDraft = getMockLearnerSpeechLine();
+        document.getElementById("chatInput").value = spokenDraft;
+        document.getElementById("startMicBtn").textContent = "Start Mic";
+        mockMicActive = false;
+        updateVoiceMeter();
+        setVoiceStatus("Mock speech captured. The draft is now in the text box and ready for review or sending.");
+        setHelperText("A mocked speech draft was added to the text box. This is where real speech-to-text will connect later.");
+      }, 1400);
+    }
+
+    function handleMockAiVoice() {
+      if (mockAiVoicePlaying) {
+        return;
+      }
+
+      mockAiVoicePlaying = true;
+      updateVoiceMeter("speaking");
+      document.getElementById("playAiVoiceBtn").disabled = true;
+      setVoiceStatus("AI voice is playing a mocked spoken prompt for this scenario.");
+
+      const spokenPrompt = getMockVoicePrompt();
+      appendMessage("AI Voice", spokenPrompt, "ai");
+      rememberConversationTurn("assistant", spokenPrompt, "reply");
+      document.getElementById("pronunciationStatus").textContent =
+        "Mock voice playback complete. Real pronunciation scoring can connect here later.";
+
+      window.setTimeout(() => {
+        mockAiVoicePlaying = false;
+        updateVoiceMeter();
+        document.getElementById("playAiVoiceBtn").disabled = false;
+        setVoiceStatus("AI voice playback finished. Answer by voice or edit the draft in text.");
+      }, 1500);
+    }
+
+    async function handleSendMessage() {
+      const input = document.getElementById("chatInput");
+      const sendButton = document.getElementById("sendMessageBtn");
+      const userMessage = input.value.trim();
+
+      if (!userMessage) {
+        setHelperText("Type a short practice sentence first, then send it to the mocked AI coach.");
+        return;
+      }
+
+      const payload = buildAiRequestPayload(userMessage);
+      appendMessage("You", userMessage, "user");
+      rememberConversationTurn("user", userMessage, "message");
+      input.value = "";
+      sendButton.disabled = true;
+      sendButton.textContent = "AI is thinking...";
+      showRequestPreview(payload);
+
+      const backendResult = await backendAiChatApi(payload);
+      const response = backendResult.ok
+        ? backendResult.data
+        : await mockAiChatApi(payload);
+
+      renderAiResponse(response);
+      scenarioProgressStep = Math.min(scenarioProgressStep + 1, 3);
+      refreshScenarioStage();
+      sendButton.disabled = false;
+      sendButton.textContent = "Send to AI";
+
+      if (backendResult.ok) {
+        setHelperText("This turn came from the backend AI route. Later, switching to paid AI will mostly be a backend provider change.");
+      } else {
+        setHelperText(`Backend chat was unavailable, so the page used local mock AI instead. ${backendResult.fallbackReason || ""}`.trim());
+      }
+    }
+
+    function handleGeneratePrompt() {
+      const stepInfo = getScenarioStepData(activeScenario, scenarioProgressStep);
+      let prompt = `${stepInfo.prompt} Keep the reply at a ${stats.level.toLowerCase()} level and stay inside ${formatCategoryName(selectedCategory).toLowerCase()}.`;
+      const promptTemplates = getScenarioPromptTemplates(lang);
+
+      if (promptTemplates[activeScenario.id]) {
+        prompt = promptTemplates[activeScenario.id];
+      }
+
+      document.getElementById("chatInput").value = prompt;
+      setHelperText("A natural starter prompt was added for this language and scenario, so the learner can begin more easily.");
+    }
+
+    function renderScenarioList() {
+      const list = document.getElementById("scenarioList");
+      list.innerHTML = activeScenarios.map((scenario, index) => `
+        <button
+          type="button"
+          class="scenario-card${index === 0 ? " active" : ""}"
+          onclick="selectScenario('${scenario.id}')"
+        >
+          <strong>${scenario.title}</strong>
+          <span>${scenario.description}</span>
+        </button>
+      `).join("");
+    }
+
+    function renderGoals() {
+      const goals = [
+        `Keep your replies short and stay inside ${formatCategoryName(selectedCategory)} words when possible.`,
+        `Practice at a ${stats.level} level with ${selectedStudyMode === "adaptive" ? "a mix of easier and harder prompts" : "focused same-level prompts"}.`,
+        weakWords.length
+          ? `Reuse weak words like ${weakWords.slice(0, 2).map(item => item.word).join(" and ")} in your answers.`
+          : "Start simple first. Weak-word review will appear after mistakes are tracked."
+      ];
+
+      document.getElementById("sessionGoals").innerHTML =
+        goals.map(goal => `<li>${goal}</li>`).join("");
+    }
+
+    function renderWeakWords() {
+      const list = document.getElementById("weakWordList");
+      document.getElementById("weakWordsCount").textContent = `${weakWords.length} tracked`;
+      document.getElementById("focusWordsMetric").textContent =
+        weakWords.length ? `${weakWords.length} weak words` : "No weak words yet";
+
+      if (!weakWords.length) {
+        list.innerHTML = `<p class="empty-weak-note">No weak words yet. Once the learner struggles with words, AI chat can recycle them here.</p>`;
+        return;
+      }
+
+      list.innerHTML = weakWords.map(word => `
+        <div class="weak-word-pill">
+          <strong>${word.word}</strong>
+          <span>${word.meaning}</span>
+        </div>
+      `).join("");
+    }
+
+    function applyScenario(scenario) {
+      scenarioProgressStep = 1;
+      activeScenarioTargets = buildScenarioTargetWords(scenario.id);
+      const firstStep = getScenarioStepData(scenario, scenarioProgressStep);
+      document.getElementById("scenarioTag").textContent = scenario.title;
+      document.getElementById("stageTitle").textContent = scenario.title;
+      document.getElementById("stageDescription").textContent = firstStep.description;
+      document.getElementById("targetSkill").textContent = firstStep.skill;
+      document.getElementById("openingAiMessage").textContent =
+        `${firstStep.prompt} I will keep my replies aligned with your ${stats.level.toLowerCase()} level.`;
+      document.getElementById("correctionHint").textContent =
+        selectedStudyMode === "adaptive"
+          ? "I can simplify your reply, then stretch it with a stronger version."
+          : "I will keep corrections close to your current level so practice stays focused.";
+      document.getElementById("grammarHint").textContent =
+        `AI feedback will prioritize clarity, tone, and useful corrections for step 1: ${firstStep.label.toLowerCase()}.`;
+      document.getElementById("confidenceHint").textContent =
+        activeScenarioTargets.length
+          ? `Target these words next: ${activeScenarioTargets.map(card => card.word).join(", ")}.`
+          : "Supportive coaching enabled";
+      conversationHistory = [
+        {
+          role: "assistant",
+          type: "reply",
+          text: `${firstStep.prompt} I will keep my replies aligned with your ${stats.level.toLowerCase()} level.`
+        }
+      ];
+      updateChannelButtons();
+      updateVoiceStateBadge();
+      updateSuggestionStates();
+      refreshScenarioStage();
+    }
+
+    function selectScenario(id) {
+      const nextScenario = activeScenarios.find(item => item.id === id);
+      if (!nextScenario) return;
+
+      activeScenario = nextScenario;
+      document.querySelectorAll(".scenario-card").forEach(card => {
+        card.classList.toggle("active", card.textContent.includes(nextScenario.title));
+      });
+      applyScenario(nextScenario);
+      setHelperText(`Scenario changed to ${nextScenario.title}. The mocked AI will now respond as if this is the active practice scene.`);
+    }
+    window.selectScenario = selectScenario;
+
+    renderScenarioList();
+    renderGoals();
+    renderWeakWords();
+    applyScenario(activeScenario);
+
+    document.getElementById("sendMessageBtn").addEventListener("click", handleSendMessage);
+    document.getElementById("generatePromptBtn").addEventListener("click", handleGeneratePrompt);
+    document.getElementById("marketSceneBtn").addEventListener("click", handleSuggestedMarketplace);
+    document.getElementById("weakWordsBtn").addEventListener("click", handleSuggestedWeakWords);
+    document.getElementById("slowCoachBtn").addEventListener("click", handleSuggestedSlowCoach);
+    document.getElementById("listeningModeBtn").addEventListener("click", handleSuggestedListeningMode);
+    document.getElementById("startMicBtn").addEventListener("click", handleMockMic);
+    document.getElementById("playAiVoiceBtn").addEventListener("click", handleMockAiVoice);
+    document.querySelectorAll(".channel-btn").forEach(button => {
+      button.addEventListener("click", handleChannelButtonClick);
+    });
+    document.getElementById("chatInput").addEventListener("keydown", event => {
+      if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+        handleSendMessage();
+      }
+    });
+  </script>
+</body>
+
+</html>

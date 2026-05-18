@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz</title>
+    <link rel="stylesheet" href="assets/css/style.css">
+    <script src="data.js"></script>
+</head>
+
+<body>
+
+    <h1 id="quizTitle">Language Quiz</h1>
+    <div class="quiz-progress">
+        <p id="progressText">1 of 5</p>
+
+    </div>
+
+    <div class="quiz-container">
+
+        <a id="backBtn" class="back-btn">&larr; Back</a>
+
+        <h2 class="quiz-title">Translate this word</h2>
+
+        <div class="quiz-word" id="quizWord">
+            Word
+        </div>
+
+        <div class="options">
+
+            <button class="option-btn" type="button" onclick="selectAnswer(this)">Option</button>
+            <button class="option-btn" type="button" onclick="selectAnswer(this)">Option</button>
+            <button class="option-btn" type="button" onclick="selectAnswer(this)">Option</button>
+            <button class="option-btn" type="button" onclick="selectAnswer(this)">Option</button>
+
+        </div>
+
+        <div class="feedback" id="feedback"></div>
+
+        <button class="continue-btn" id="continueBtn" type="button" onclick="nextQuestion()">
+            Continue
+        </button>
+
+    </div>
+
+
+
+    <script src="progress.js"></script>
+
+    <script>
+        let score = 0;
+
+        const params = new URLSearchParams(window.location.search);
+        let lang = params.get("lang") || localStorage.getItem("selectedLanguage") || "yoruba";
+        const mode = params.get("mode");
+        const selectedCategory = params.get("category") || localStorage.getItem("selectedCategory") || "all";
+        const selectedStudyMode = params.get("studyMode") || localStorage.getItem("selectedStudyMode") || "level";
+        const progressKey = `quizIndex::${lang}::${selectedCategory}::${selectedStudyMode}::${mode || "normal"}`;
+        let safeCategory = selectedCategory;
+        let learnerLevel = "starter";
+        let isAdvancing = false;
+        let hasAnsweredCurrentQuestion = false;
+        let canGoNext = false;
+
+        if (typeof getLanguageCategories === "function") {
+            const validCategories = getLanguageCategories(lang);
+            if (safeCategory !== "all" && !validCategories.includes(safeCategory)) {
+                safeCategory = "all";
+            }
+        }
+
+        // Save selected language
+        localStorage.setItem("selectedLanguage", lang);
+        localStorage.setItem("selectedCategory", safeCategory);
+        localStorage.setItem("selectedStudyMode", selectedStudyMode);
+
+        // Base deck
+        if (typeof getDashboardStats === "function" && typeof getDeckForLanguage === "function") {
+            learnerLevel = (getDashboardStats(lang, getDeckForLanguage(lang).length).level || "Starter").toLowerCase();
+        }
+
+        const baseDeck = typeof getDeckForStudyMode === "function"
+            ? getDeckForStudyMode(lang, learnerLevel, safeCategory, selectedStudyMode)
+            : (typeof getDeckForStudyLevel === "function"
+                ? getDeckForStudyLevel(lang, learnerLevel, safeCategory)
+                : (typeof getDeckForLanguage === "function"
+                    ? getDeckForLanguage(lang, safeCategory)
+                    : (flashcardData[lang] || [])));
+        let deck = baseDeck.length
+            ? [...baseDeck]
+            : (typeof getDeckForLanguage === "function" ? getDeckForLanguage(lang, safeCategory) : (flashcardData[lang] || []));
+
+        if (!deck.length && typeof getDeckForLanguage === "function") {
+            deck = getDeckForLanguage(lang, "all");
+        }
+
+        if (!deck.length && flashcardData["yoruba"]) {
+            deck = [...flashcardData["yoruba"]];
+            lang = "yoruba";
+            localStorage.setItem("selectedLanguage", lang);
+        }
+
+        let currentQuestion = 0;
+        let correctAnswer = "";
+
+        // =========================
+        // REVIEW MODE (FIXED)
+        // =========================
+        if (mode === "review") {
+
+            document.getElementById("quizTitle").textContent = "Review Weak Words";
+
+            const savedDifficult = getDifficultWords(lang);
+
+            deck = savedDifficult.map(savedCard =>
+                baseDeck.find(card =>
+                    card.word === savedCard.word && card.meaning === savedCard.meaning
+                ) || savedCard
+            );
+
+            if (deck.length === 0) {
+                alert("No weak words to review yet.");
+                window.location.href = `dashboard.html?lang=${lang}&category=${safeCategory}&studyMode=${selectedStudyMode}`;
+                deck = [];
+            }
+
+        }
+
+        // =========================
+        // SHUFFLE
+        // =========================
+        function shuffle(array) {
+            const copy = [...array];
+            for (let i = copy.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [copy[i], copy[j]] = [copy[j], copy[i]];
+            }
+            return copy;
+        }
+
+        function normalizeDeck(cards) {
+            const seen = new Set();
+            const cleaned = (cards || []).filter(card => {
+                if (!card || !card.word || !card.meaning) return false;
+                const key = `${String(card.word).trim().toLowerCase()}::${String(card.meaning).trim().toLowerCase()}`;
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+            });
+            return shuffle(cleaned);
+        }
+
+        // =========================
+        // LOAD QUESTION
+        // =========================
+        function loadQuestion() {
+
+            if (!deck || deck.length === 0) return;
+
+            const card = deck[currentQuestion];
+            if (!card) {
+                currentQuestion = 0;
+                loadQuestion();
+                return;
+            }
+
+            // Title (only if normal mode)
+            if (mode !== "review") {
+                document.getElementById("quizTitle").textContent =
+                    lang.charAt(0).toUpperCase() + lang.slice(1) +
+                    (safeCategory === "all"
+                        ? ` ${learnerLevel.charAt(0).toUpperCase() + learnerLevel.slice(1)} ${selectedStudyMode === "adaptive" ? "Adaptive " : ""}Quiz`
+                        : ` ${safeCategory.charAt(0).toUpperCase() + safeCategory.slice(1)} ${learnerLevel.charAt(0).toUpperCase() + learnerLevel.slice(1)} ${selectedStudyMode === "adaptive" ? "Adaptive " : ""}Quiz`);
+            }
+
+            // Progress text
+            document.getElementById("progressText").textContent =
+                `${currentQuestion + 1} of ${deck.length}`;
+            sessionStorage.setItem(progressKey, String(currentQuestion));
+
+            document.getElementById("quizWord").textContent = card.word;
+
+            correctAnswer = card.meaning;
+
+            const optionPool = [...new Set(baseDeck.map(item => item.meaning))]
+                .filter(meaning => meaning !== correctAnswer);
+
+            let options = [
+                correctAnswer,
+                ...shuffle([...optionPool]).slice(0, 3)
+            ];
+
+            options = shuffle(options);
+
+            const buttons = document.querySelectorAll(".option-btn");
+
+            buttons.forEach((btn, index) => {
+                const option = options[index];
+
+                btn.style.display = option ? "block" : "none";
+                btn.textContent = option || "";
+                btn.dataset.correct = option === correctAnswer;
+                btn.disabled = false;
+                btn.classList.remove("option-correct", "option-wrong", "option-correct-flash");
+            });
+
+            document.getElementById("feedback").textContent = "";
+            const continueBtn = document.getElementById("continueBtn");
+            continueBtn.style.display = "none";
+            continueBtn.disabled = true;
+            hasAnsweredCurrentQuestion = false;
+            canGoNext = false;
+        }
+
+        // =========================
+        // SELECT ANSWER
+        // =========================
+    function selectAnswer(button) {
+            if (hasAnsweredCurrentQuestion) return;
+            hasAnsweredCurrentQuestion = true;
+
+            const buttons = document.querySelectorAll(".option-btn");
+            buttons.forEach(btn => btn.disabled = true);
+            const currentCard = deck[currentQuestion];
+            const correctButton = Array.from(buttons).find(btn => btn.dataset.correct === "true");
+            const continueBtn = document.getElementById("continueBtn");
+
+            if (button.dataset.correct === "true") {
+                button.classList.add("option-correct");
+
+                score++;
+                try {
+                    const progress = recordCorrectAnswer(currentCard, lang);
+                    syncAnswerToBackend(currentCard, lang, true, {
+                        category: safeCategory,
+                        studyMode: selectedStudyMode,
+                        activityType: mode === "review" ? "review-quiz" : "quiz"
+                    }).then(syncResult => {
+                        if (!syncResult.synced && !syncResult.skipped) {
+                            document.getElementById("feedback").textContent += " Progress saved locally only.";
+                        }
+                    });
+
+                    if (progress.justMastered) {
+                        document.getElementById("feedback").textContent =
+                            "Correct! This word is mastered and removed from weak words.";
+                    } else if (progress.wasWeak) {
+                        document.getElementById("feedback").textContent =
+                            `Correct! ${MASTERED_STREAK - progress.reviewStreak} more strong answer(s) to master this word.`;
+                    } else {
+                        document.getElementById("feedback").textContent = "Correct!";
+                    }
+                } catch (error) {
+                    document.getElementById("feedback").textContent = "Correct!";
+                }
+
+            } else {
+                button.classList.add("option-wrong");
+                if (correctButton) {
+                    correctButton.classList.add("option-correct", "option-correct-flash");
+                }
+
+                try {
+                    saveDifficultWord(currentCard, lang);
+                    syncAnswerToBackend(currentCard, lang, false, {
+                        category: safeCategory,
+                        studyMode: selectedStudyMode,
+                        activityType: mode === "review" ? "review-quiz" : "quiz"
+                    }).then(syncResult => {
+                        if (!syncResult.synced && !syncResult.skipped) {
+                            document.getElementById("feedback").textContent += " Progress saved locally only.";
+                        }
+                    });
+                } catch (error) {
+                    // keep quiz flow moving even if tracking storage fails
+                }
+
+                document.getElementById("feedback").textContent =
+                    "Wrong. Correct answer: " + correctAnswer;
+            }
+
+            continueBtn.style.display = "block";
+            continueBtn.disabled = true;
+            setTimeout(() => {
+                canGoNext = true;
+                continueBtn.disabled = false;
+            }, 500);
+        }
+        window.selectAnswer = selectAnswer;
+
+        // =========================
+        // NEXT QUESTION (FIXED)
+        // =========================
+        function nextQuestion() {
+            if (isAdvancing) return;
+            if (!hasAnsweredCurrentQuestion || !canGoNext) return;
+            isAdvancing = true;
+            canGoNext = false;
+
+            currentQuestion++;
+
+            // End logic
+            if (currentQuestion >= deck.length) {
+
+                // save score
+                localStorage.setItem("lastQuizScore", score);
+                localStorage.setItem("lastQuizTotal", deck.length);
+
+                alert(`Lesson Complete\nScore: ${score} / ${deck.length}`);
+
+                // reset
+                currentQuestion = 0;
+                score = 0;
+
+                // reload normal deck after review
+                if (mode === "review") {
+                    window.location.href = `dashboard.html?lang=${lang}&category=${safeCategory}&studyMode=${selectedStudyMode}`;
+                    return;
+                }
+            }
+
+            loadQuestion();
+            isAdvancing = false;
+        }
+        window.nextQuestion = nextQuestion;
+
+        // =========================
+        // BACK BUTTON
+        // =========================
+        document.getElementById("backBtn").href =
+            `dashboard.html?lang=${lang}&category=${safeCategory}&studyMode=${selectedStudyMode}`;
+
+        // =========================
+        // INIT
+        // =========================
+        deck = normalizeDeck(deck);
+        if (baseDeck && baseDeck.length) {
+            baseDeck.splice(0, baseDeck.length, ...normalizeDeck(baseDeck));
+        }
+        const savedQuestion = Number.parseInt(sessionStorage.getItem(progressKey) || "0", 10);
+        if (Number.isInteger(savedQuestion) && savedQuestion >= 0 && savedQuestion < deck.length) {
+            currentQuestion = savedQuestion;
+        }
+        loadQuestion();
+
+    </script>
+</body>
+
+</html>

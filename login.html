@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login</title>
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+
+<body class="auth-page">
+  <div class="auth-shell">
+    <section class="auth-showcase">
+      <p class="auth-kicker">AI Language Companion</p>
+      <h1>Practice your language with a calm, modern coach.</h1>
+      <p>Short lessons, real-life conversations, weak-word review, and guided AI practice all in one place.</p>
+
+      <div class="auth-highlights">
+        <div class="auth-highlight-card">
+          <strong>Learn by speaking</strong>
+          <span>Practice greetings, transport, school, clinic, and daily-life scenarios.</span>
+        </div>
+        <div class="auth-highlight-card">
+          <strong>Track your progress</strong>
+          <span>See weak words, streaks, mastery, and your current learning level.</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="auth-card">
+      <p class="auth-form-label">Welcome Back</p>
+      <h2>Log in</h2>
+      <p class="auth-copy">Use your email to continue with your real backend account.</p>
+
+      <form id="loginForm" class="auth-form">
+        <label class="auth-field">
+          <span>Email</span>
+          <input type="email" id="loginEmail" placeholder="you@example.com" required>
+        </label>
+
+        <label class="auth-field">
+          <span>Password</span>
+          <input type="password" id="loginPassword" placeholder="Enter password" required>
+        </label>
+
+        <button class="auth-submit-btn" type="submit">Log In</button>
+      </form>
+
+      <p class="auth-note" id="loginStatus">Tip: if you have not created an account yet, use Sign Up first.</p>
+      <p class="auth-switch">New here? <a href="signup.html">Create an account</a></p>
+    </section>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const selectedLang = params.get("lang") || localStorage.getItem("selectedLanguage") || "yoruba";
+    const logoutMode = params.get("logout") === "1";
+    const forceAuth = params.get("forceAuth") === "1";
+    const API_BASE = "http://localhost:4000";
+
+    function getStoredUser() {
+      try {
+        const raw = localStorage.getItem("languageCompanionUser");
+        return raw ? JSON.parse(raw) : null;
+      } catch (error) {
+        return null;
+      }
+    }
+
+    function goToDashboard() {
+      window.location.href = `dashboard.html?lang=${selectedLang}`;
+    }
+
+    function clearStoredSession() {
+      localStorage.removeItem("languageCompanionSession");
+      localStorage.removeItem("languageCompanionUser");
+    }
+
+    async function validateStoredSession() {
+      if (logoutMode) {
+        clearStoredSession();
+        document.getElementById("loginStatus").textContent = "You have been signed out. Please log in.";
+        return;
+      }
+
+      if (forceAuth) {
+        clearStoredSession();
+        document.getElementById("loginStatus").textContent = "Fresh login mode enabled. Please sign in.";
+        return;
+      }
+
+      const savedUser = getStoredUser();
+
+      if (localStorage.getItem("languageCompanionSession") !== "active" || !savedUser || !savedUser.id) {
+        clearStoredSession();
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/user/profile/${savedUser.id}`);
+        const payload = await response.json();
+
+        if (!response.ok || !payload.user) {
+          clearStoredSession();
+          return;
+        }
+
+        if (!savedUser.email || savedUser.email !== payload.user.email) {
+          clearStoredSession();
+          document.getElementById("loginStatus").textContent = "Saved session changed. Please log in again.";
+          return;
+        }
+
+        localStorage.setItem("languageCompanionUser", JSON.stringify({
+          id: payload.user.id,
+          name: payload.user.name,
+          email: payload.user.email,
+          role: payload.user.role || "user",
+          goal: payload.user.goal || "Daily conversation practice",
+          joinedAt: payload.user.created_at
+        }));
+
+        goToDashboard();
+      } catch (error) {
+        document.getElementById("loginStatus").textContent =
+          "Backend is not reachable right now. You can still log in once `npm run dev` is running.";
+      }
+    }
+
+    validateStoredSession();
+
+    document.getElementById("loginForm").addEventListener("submit", async event => {
+      event.preventDefault();
+
+      const email = document.getElementById("loginEmail").value.trim();
+      const password = document.getElementById("loginPassword").value.trim();
+      const status = document.getElementById("loginStatus");
+      const submitBtn = event.target.querySelector("button[type='submit']");
+
+      if (!email || !password) {
+        status.textContent = "Please fill in your email and password.";
+        return;
+      }
+
+      submitBtn.disabled = true;
+      status.textContent = "Checking account...";
+
+      try {
+        const response = await fetch(`${API_BASE}/auth/login`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            email,
+            password
+          })
+        });
+
+        const payload = await response.json();
+
+        if (!response.ok) {
+          status.textContent = payload.error || "Login failed. Please try again.";
+          submitBtn.disabled = false;
+          return;
+        }
+
+        localStorage.setItem("languageCompanionUser", JSON.stringify({
+          id: payload.user.id,
+          name: payload.user.name,
+          email: payload.user.email,
+          role: payload.user.role || "user",
+          goal: payload.user.goal || "Daily conversation practice",
+          joinedAt: payload.user.created_at
+        }));
+        localStorage.setItem("languageCompanionSession", "active");
+        localStorage.setItem("selectedLanguage", selectedLang);
+
+        status.textContent = "Login successful. Opening dashboard...";
+        window.setTimeout(() => {
+          goToDashboard();
+        }, 500);
+      } catch (error) {
+        status.textContent = "Cannot reach backend. Make sure `npm run dev` is still running.";
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+
+</html>

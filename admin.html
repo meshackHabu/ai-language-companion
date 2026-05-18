@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Overview</title>
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+
+<body class="dashboard-page">
+  <div class="admin-shell">
+    <section class="dashboard-hero-card">
+      <div class="dashboard-topbar">
+        <a class="back-btn" href="admin-login.html">Admin Login</a>
+        <button class="ghost-link-btn" type="button" onclick="loadAdminOverview()">Refresh</button>
+      </div>
+
+      <p class="dashboard-kicker">Developer View</p>
+      <h1>Admin Overview</h1>
+      <p class="dashboard-subtitle" id="adminStatusText">Inspect users, study progress, sessions, and chat messages from the backend in one place.</p>
+    </section>
+
+    <section class="admin-summary-grid">
+      <div class="profile-stat-card">
+        <span>Total Users</span>
+        <strong id="adminUsersCount">0</strong>
+      </div>
+      <div class="profile-stat-card">
+        <span>Progress Records</span>
+        <strong id="adminProgressCount">0</strong>
+      </div>
+      <div class="profile-stat-card">
+        <span>Study Sessions</span>
+        <strong id="adminSessionsCount">0</strong>
+      </div>
+      <div class="profile-stat-card">
+        <span>Chat Messages</span>
+        <strong id="adminChatsCount">0</strong>
+      </div>
+    </section>
+
+    <section class="admin-panel-grid">
+      <article class="admin-panel-card">
+        <div class="ai-panel-head">
+          <h2>Users</h2>
+          <span id="usersMeta">Latest first</span>
+        </div>
+        <div id="usersList" class="admin-list"></div>
+      </article>
+
+      <article class="admin-panel-card">
+        <div class="ai-panel-head">
+          <h2>Progress</h2>
+          <span id="progressMeta">Latest activity</span>
+        </div>
+        <div id="progressList" class="admin-list"></div>
+      </article>
+
+      <article class="admin-panel-card">
+        <div class="ai-panel-head">
+          <h2>Study Sessions</h2>
+          <span id="sessionsMeta">Recent study</span>
+        </div>
+        <div id="sessionsList" class="admin-list"></div>
+      </article>
+
+      <article class="admin-panel-card">
+        <div class="ai-panel-head">
+          <h2>Chat Messages</h2>
+          <span id="chatsMeta">Last 100 messages</span>
+        </div>
+        <div id="chatsList" class="admin-list"></div>
+      </article>
+    </section>
+  </div>
+
+  <script>
+    const API_BASE_URL = "http://localhost:4000";
+
+    function getStoredUser() {
+      try {
+        return JSON.parse(localStorage.getItem("languageCompanionUser")) || null;
+      } catch (error) {
+        return null;
+      }
+    }
+
+    function escapeHtml(text) {
+      return String(text || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    function formatDate(value) {
+      if (!value) return "No date";
+
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return value;
+
+      return date.toLocaleString();
+    }
+
+    function renderEmptyState(containerId, message) {
+      document.getElementById(containerId).innerHTML = `<p class="admin-empty-note">${escapeHtml(message)}</p>`;
+    }
+
+    function renderUsers(users) {
+      if (!users.length) {
+        renderEmptyState("usersList", "No users found yet.");
+        return;
+      }
+
+      document.getElementById("usersList").innerHTML = users.map(user => `
+        <div class="admin-list-item">
+          <strong>${escapeHtml(user.name)}</strong>
+          <span>${escapeHtml(user.email)}</span>
+          <span>Language: ${escapeHtml(user.selected_language || "yoruba")}</span>
+          <span>Joined: ${escapeHtml(formatDate(user.created_at))}</span>
+        </div>
+      `).join("");
+    }
+
+    function renderProgress(progress) {
+      if (!progress.length) {
+        renderEmptyState("progressList", "No progress records yet.");
+        return;
+      }
+
+      document.getElementById("progressList").innerHTML = progress.slice(0, 25).map(entry => `
+        <div class="admin-list-item">
+          <strong>${escapeHtml(entry.word)} (${escapeHtml(entry.language)})</strong>
+          <span>${escapeHtml(entry.meaning)}</span>
+          <span>Correct: ${entry.correct_count} | Wrong: ${entry.wrong_count}</span>
+          <span>Streak: ${entry.review_streak} | Mastered: ${entry.is_mastered === 1 ? "Yes" : "No"}</span>
+        </div>
+      `).join("");
+    }
+
+    function renderSessions(sessions) {
+      if (!sessions.length) {
+        renderEmptyState("sessionsList", "No study sessions saved yet.");
+        return;
+      }
+
+      document.getElementById("sessionsList").innerHTML = sessions.slice(0, 30).map(session => `
+        <div class="admin-list-item">
+          <strong>${escapeHtml(session.language)} | ${escapeHtml(session.activity_type)}</strong>
+          <span>Category: ${escapeHtml(session.category)}</span>
+          <span>Mode: ${escapeHtml(session.study_mode)}</span>
+          <span>${escapeHtml(formatDate(session.created_at))}</span>
+        </div>
+      `).join("");
+    }
+
+    function renderChats(chats) {
+      if (!chats.length) {
+        renderEmptyState("chatsList", "No chat messages saved yet.");
+        return;
+      }
+
+      document.getElementById("chatsList").innerHTML = chats.slice(0, 30).map(chat => `
+        <div class="admin-list-item">
+          <strong>${escapeHtml(chat.language)} | ${escapeHtml(chat.scenario)} | ${escapeHtml(chat.role)}</strong>
+          <span>${escapeHtml(chat.message)}</span>
+          <span>${escapeHtml(formatDate(chat.created_at))}</span>
+        </div>
+      `).join("");
+    }
+
+    async function loadAdminOverview() {
+      const user = getStoredUser();
+
+      if (localStorage.getItem("languageCompanionSession") !== "active" || !user || !user.id) {
+        window.location.href = "admin-login.html";
+        return;
+      }
+
+      try {
+        const profileResponse = await fetch(`${API_BASE_URL}/user/profile/${user.id}`);
+        const profilePayload = await profileResponse.json();
+
+        if (!profileResponse.ok || !profilePayload.user) {
+          localStorage.removeItem("languageCompanionSession");
+          localStorage.removeItem("languageCompanionUser");
+          window.location.href = "admin-login.html";
+          return;
+        }
+
+        localStorage.setItem("languageCompanionUser", JSON.stringify({
+          id: profilePayload.user.id,
+          name: profilePayload.user.name,
+          email: profilePayload.user.email,
+          role: profilePayload.user.role || "user",
+          goal: profilePayload.user.goal || "Daily conversation practice",
+          joinedAt: profilePayload.user.created_at
+        }));
+
+        if ((profilePayload.user.role || "user") !== "admin") {
+          window.location.href = "dashboard.html";
+          return;
+        }
+
+        const response = await fetch(`${API_BASE_URL}/admin/overview`, {
+          headers: {
+            "x-admin-user-id": user.id
+          }
+        });
+        const payload = await response.json();
+
+        if (!response.ok) {
+          throw new Error(payload.error || "Failed to load admin overview.");
+        }
+
+        document.getElementById("adminUsersCount").textContent = payload.users.length;
+        document.getElementById("adminProgressCount").textContent = payload.progress.length;
+        document.getElementById("adminSessionsCount").textContent = payload.sessions.length;
+        document.getElementById("adminChatsCount").textContent = payload.chats.length;
+
+        renderUsers(payload.users);
+        renderProgress(payload.progress);
+        renderSessions(payload.sessions);
+        renderChats(payload.chats);
+      } catch (error) {
+        renderEmptyState("usersList", "Could not reach backend admin route.");
+        renderEmptyState("progressList", "Could not reach backend admin route.");
+        renderEmptyState("sessionsList", "Could not reach backend admin route.");
+        renderEmptyState("chatsList", "Could not reach backend admin route.");
+      }
+    }
+
+    loadAdminOverview();
+  </script>
+</body>
+
+</html>

@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Login</title>
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+
+<body class="auth-page">
+  <div class="auth-shell">
+    <section class="auth-showcase">
+      <p class="auth-kicker">Admin Portal</p>
+      <h1>Open the admin workspace separately from the learner app.</h1>
+      <p>This page is only for approved admin accounts. Learners should continue using the normal dashboard.</p>
+
+      <div class="auth-highlights">
+        <div class="auth-highlight-card">
+          <strong>Separate access</strong>
+          <span>The learner dashboard stays focused on study actions, not admin tools.</span>
+        </div>
+        <div class="auth-highlight-card">
+          <strong>Role checked</strong>
+          <span>The backend still verifies that the logged-in account is really an admin.</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="auth-card">
+      <p class="auth-form-label">Admin Access</p>
+      <h2>Log in as admin</h2>
+      <p class="auth-copy">Use an account that has already been promoted to admin.</p>
+
+      <form id="adminLoginForm" class="auth-form">
+        <label class="auth-field">
+          <span>Email</span>
+          <input type="email" id="adminEmail" placeholder="admin@example.com" required>
+        </label>
+
+        <label class="auth-field">
+          <span>Password</span>
+          <input type="password" id="adminPassword" placeholder="Enter password" required>
+        </label>
+
+        <button class="auth-submit-btn" type="submit">Open Admin</button>
+      </form>
+
+      <p class="auth-note" id="adminLoginStatus">Only admin accounts can continue from this page.</p>
+      <p class="auth-switch"><a href="login.html">Go to learner login</a></p>
+    </section>
+  </div>
+
+  <script>
+    const API_BASE = "http://localhost:4000";
+    const selectedLang = localStorage.getItem("selectedLanguage") || "yoruba";
+
+    function saveSession(user) {
+      localStorage.setItem("languageCompanionUser", JSON.stringify({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role || "user",
+        goal: user.goal || "Daily conversation practice",
+        joinedAt: user.created_at
+      }));
+      localStorage.setItem("languageCompanionSession", "active");
+    }
+
+    async function validateExistingAdminSession() {
+      const raw = localStorage.getItem("languageCompanionUser");
+      if (localStorage.getItem("languageCompanionSession") !== "active" || !raw) {
+        return;
+      }
+
+      try {
+        const savedUser = JSON.parse(raw);
+        if (!savedUser.id) {
+          return;
+        }
+
+        const response = await fetch(`${API_BASE}/user/profile/${savedUser.id}`);
+        const payload = await response.json();
+
+        if (response.ok && payload.user && (payload.user.role || "user") === "admin") {
+          saveSession(payload.user);
+          window.location.href = "admin.html";
+        }
+      } catch (error) {
+        document.getElementById("adminLoginStatus").textContent =
+          "Backend is not reachable right now. Start it with `npm run dev` before using admin access.";
+      }
+    }
+
+    validateExistingAdminSession();
+
+    document.getElementById("adminLoginForm").addEventListener("submit", async event => {
+      event.preventDefault();
+
+      const email = document.getElementById("adminEmail").value.trim();
+      const password = document.getElementById("adminPassword").value.trim();
+      const status = document.getElementById("adminLoginStatus");
+      const submitBtn = event.target.querySelector("button[type='submit']");
+
+      if (!email || !password) {
+        status.textContent = "Please enter your admin email and password.";
+        return;
+      }
+
+      submitBtn.disabled = true;
+      status.textContent = "Checking admin account...";
+
+      try {
+        const response = await fetch(`${API_BASE}/auth/login`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ email, password })
+        });
+
+        const payload = await response.json();
+
+        if (!response.ok) {
+          status.textContent = payload.error || "Login failed.";
+          submitBtn.disabled = false;
+          return;
+        }
+
+        if ((payload.user.role || "user") !== "admin") {
+          status.textContent = "This account is valid, but it is not an admin account.";
+          submitBtn.disabled = false;
+          return;
+        }
+
+        saveSession(payload.user);
+        localStorage.setItem("selectedLanguage", payload.user.selected_language || selectedLang);
+
+        status.textContent = "Admin login successful. Opening admin workspace...";
+        window.setTimeout(() => {
+          window.location.href = "admin.html";
+        }, 400);
+      } catch (error) {
+        status.textContent = "Cannot reach backend. Make sure `npm run dev` is still running.";
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+
+</html>
