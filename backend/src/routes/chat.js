@@ -13,7 +13,8 @@ router.post("/chat", async (req, res) => {
       scenario,
       learnerMessage,
       weakWords = [],
-      targetWords = []
+      targetWords = [],
+      chatHistory = []
     } = req.body;
 
     if (!userId || !language || !scenario || !learnerMessage) {
@@ -31,12 +32,14 @@ router.post("/chat", async (req, res) => {
       [userId, language, scenario, "user", learnerMessage, createdAt]
     );
 
+    // Pass the full chat history to the AI provider
     const aiResult = await generateAiResponse({
       language,
       scenario,
       learnerMessage,
       weakWords,
-      targetWords
+      targetWords,
+      chatHistory
     });
 
     await db.run(

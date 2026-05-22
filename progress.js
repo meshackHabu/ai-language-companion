@@ -2,7 +2,7 @@ const WORD_PROGRESS_KEY = "wordProgress";
 const LEGACY_DIFFICULT_WORDS_KEY = "difficultWords";
 const STUDY_ACTIVITY_KEY = "studyActivity";
 const MASTERED_STREAK = 3;
-const API_BASE_URL = "http://localhost:4000";
+const API_BASE_URL = "http://localhost:5500";
 
 function parseStoredJSON(key, fallbackValue) {
     const rawValue = localStorage.getItem(key);
@@ -358,33 +358,203 @@ function getDashboardStats(lang, totalDeckWords = 0) {
 }
 
 function getPerformanceLevel(stats) {
-    const coverage = stats.totalDeckWords
-        ? stats.practicedCount / stats.totalDeckWords
-        : 0;
+     const coverage = stats.totalDeckWords
+         ? stats.practicedCount / stats.totalDeckWords
+         : 0;
+ 
+     if (stats.masteredCount >= 10 && stats.accuracy >= 85 && stats.weakCount <= 2) {
+         return {
+             name: "Mastering",
+             hint: "You are retaining most words well. Keep reviewing weak words to stay sharp."
+         };
+     }
+ 
+     if (stats.masteredCount >= 5 && stats.accuracy >= 75 && coverage >= 0.6) {
+         return {
+             name: "Confident",
+             hint: "You have a strong base. Push a few more words into mastery."
+         };
+     }
+ 
+     if (stats.practicedCount >= 5 && stats.accuracy >= 60) {
+         return {
+             name: "Building",
+             hint: "You are gaining momentum. Keep practicing to turn familiar words into mastered ones."
+         };
+     }
+ 
+     return {
+         name: "Starter",
+         hint: "You are laying the foundation. A few more sessions will grow your level quickly."
+     };
+ }
 
-    if (stats.masteredCount >= 10 && stats.accuracy >= 85 && stats.weakCount <= 2) {
-        return {
-            name: "Mastering",
-            hint: "You are retaining most words well. Keep reviewing weak words to stay sharp."
-        };
-    }
+const GRAMMAR_ERRORS_KEY = "grammarErrors";
 
-    if (stats.masteredCount >= 5 && stats.accuracy >= 75 && coverage >= 0.6) {
-        return {
-            name: "Confident",
-            hint: "You have a strong base. Push a few more words into mastery."
-        };
-    }
+function getStoredGrammarErrors() {
+     const parsed = parseStoredJSON(GRAMMAR_ERRORS_KEY, {});
+     return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)
+         ? parsed
+         : {};
+ }
 
-    if (stats.practicedCount >= 5 && stats.accuracy >= 60) {
-        return {
-            name: "Building",
-            hint: "You are gaining momentum. Keep practicing to turn familiar words into mastered ones."
-        };
-    }
+function saveStoredGrammarErrors(errors) {
+     localStorage.setItem(GRAMMAR_ERRORS_KEY, JSON.stringify(errors));
+ }
 
-    return {
-        name: "Starter",
-        hint: "You are laying the foundation. A few more sessions will grow your level quickly."
-    };
-}
+function logGrammarErrors(corrections, lang = "unknown") {
+     if (!Array.isArray(corrections) || corrections.length === 0) {
+         return { logged: false, count: 0 };
+     }
+
+     const errors = getStoredGrammarErrors();
+     const safeLang = lang || "unknown";
+
+     if (!errors[safeLang]) {
+         errors[safeLang] = {
+             totalMistakes: 0,
+             categories: {},
+             lastErrors: [],
+             timestamps: []
+         };
+     }
+
+     const langErrors = errors[safeLang];
+     let categoriesFound = new Set();
+
+     corrections.forEach((correction) => {
+         if (!correction || typeof correction !== "object") {
+             return;
+         }
+
+         const category = identifyErrorCategory(correction);
+         categoriesFound.add(category);
+
+         if (!langErrors.categories[category]) {
+             langErrors.categories[category] = 0;
+         }
+         langErrors.categories[category] += 1;
+         langErrors.totalMistakes += 1;
+
+         langErrors.lastErrors.push({
+             original: correction.original || "",
+             corrected: correction.corrected || "",
+             category: category,
+             timestamp: Date.now()
+         });
+
+         if (langErrors.lastErrors.length > 50) {
+             langErrors.lastErrors = langErrors.lastErrors.slice(-50);
+         }
+     });
+
+     langErrors.timestamps.push(Date.now());
+     if (langErrors.timestamps.length > 100) {
+         langErrors.timestamps = langErrors.timestamps.slice(-100);
+     }
+
+     errors[safeLang] = langErrors;
+     saveStoredGrammarErrors(errors);
+
+     return {
+         logged: true,
+         count: corrections.length,
+         categories: Array.from(categoriesFound)
+     };
+ }
+
+function identifyErrorCategory(correction) {
+     if (!correction || typeof correction !== "object") {
+         return "unknown";
+     }
+
+     const explanation = (correction.explanation || "").toLowerCase();
+     const original = (correction.original || "").toLowerCase();
+     const corrected = (correction.corrected || "").toLowerCase();
+
+     if (explanation.includes("tense") || explanation.includes("verb") || explanation.includes("auxiliary")) {
+         return "tense";
+     }
+     if (explanation.includes("agreement") || explanation.includes("subject") || explanation.includes("plural")) {
+         return "agreement";
+     }
+     if (explanation.includes("spelling") || explanation.includes("spell")) {
+         return "spelling";
+     }
+     if (explanation.includes("capital") || explanation.includes("punctuation")) {
+         return "punctuation";
+     }
+     if (explanation.includes("word") || explanation.includes("vocabulary") || explanation.includes("choice")) {
+         return "vocabulary";
+     }
+     if (explanation.includes("article") || explanation.includes("preposition")) {
+         return "articles_prepositions";
+     }
+     if (explanation.includes("grammar") || explanation.includes("structure")) {
+         return "grammar";
+     }
+
+     return "other";
+ }
+
+function getGrammarStatistics(lang) {
+     const errors = getStoredGrammarErrors();
+     const langErrors = errors[lang];
+
+     if (!langErrors) {
+         return {
+             totalMistakes: 0,
+             categories: {},
+             recentErrors: [],
+             streak: 0
+         };
+     }
+
+     return {
+         totalMistakes: langErrors.totalMistakes,
+         categories: { ...langErrors.categories },
+         recentErrors: langErrors.lastErrors.slice(-10),
+         streak: calculateErrorStreak(langErrors.timestamps)
+     };
+ }
+
+function calculateErrorStreak(timestamps) {
+     if (!Array.isArray(timestamps) || timestamps.length === 0) {
+         return 0;
+     }
+
+     const now = Date.now();
+     const oneDay = 24 * 60 * 60 * 1000;
+     let streak = 0;
+     let currentDate = new Date();
+     currentDate.setHours(0, 0, 0, 0);
+
+     const sortedTimestamps = timestamps.slice().sort((a, b) => b - a);
+
+     for (const ts of sortedTimestamps) {
+         const tsDate = new Date(ts);
+         tsDate.setHours(0, 0, 0, 0);
+
+         if (tsDate.getTime() === currentDate.getTime()) {
+             streak += 1;
+             currentDate.setDate(currentDate.getDate() - 1);
+         } else if (tsDate.getTime() > currentDate.getTime()) {
+             continue;
+         } else {
+             break;
+         }
+     }
+
+     return streak;
+ }
+
+function clearGrammarErrors(lang) {
+     if (!lang) {
+         localStorage.removeItem(GRAMMAR_ERRORS_KEY);
+         return;
+     }
+
+     const errors = getStoredGrammarErrors();
+     delete errors[lang];
+     saveStoredGrammarErrors(errors);
+ }

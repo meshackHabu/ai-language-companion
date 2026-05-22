@@ -42,6 +42,14 @@
 
       <div class="ai-panel">
         <div class="ai-panel-head">
+          <h2>Practice Scenarios</h2>
+          <button class="sidebar-toggle-btn" id="sidebarToggleBtn" type="button" aria-label="Toggle sidebar">≡</button>
+        </div>
+        <div class="practice-scenarios-list" id="practiceScenariosList"></div>
+      </div>
+
+      <div class="ai-panel">
+        <div class="ai-panel-head">
           <h2>Today's Focus</h2>
         </div>
         <ul class="ai-goals" id="sessionGoals"></ul>
@@ -218,7 +226,7 @@
     let lang = params.get("lang") || localStorage.getItem("selectedLanguage") || "yoruba";
     const selectedCategory = params.get("category") || localStorage.getItem("selectedCategory") || "all";
     const selectedStudyMode = params.get("studyMode") || localStorage.getItem("selectedStudyMode") || "level";
-    const API_BASE_URL = "http://localhost:4000";
+    const API_BASE_URL = "http://localhost:5500";
 
     localStorage.setItem("selectedLanguage", lang);
     localStorage.setItem("selectedCategory", selectedCategory);
@@ -690,7 +698,11 @@
         text: "Yes. Let us start slowly and make it feel like a real conversation."
       }
     ];
-    let scenarioProgressStep = 1;
+    
+    // New stateful conversation tracking
+    let activeChatHistory = [];
+    let currentScenarioAiRole = null;
+    let isFetchingAiResponse = false;
 
     document.getElementById("aiBackBtn").href =
       `dashboard.html?lang=${lang}&category=${selectedCategory}&studyMode=${selectedStudyMode}`;
@@ -736,7 +748,34 @@
       thread.scrollTop = thread.scrollHeight;
     }
 
-    function appendMessage(author, body, kind = "ai") {
+    function buildCorrectionBadge(correction, index) {
+      const tooltipId = `correction-tooltip-${Date.now()}-${index}`;
+      const uniqueId = `correction-${Date.now()}-${index}`;
+      const escapedOriginal = escapeHtml(correction.original);
+      const escapedCorrected = escapeHtml(correction.corrected);
+      const escapedExplanation = escapeHtml(correction.explanation);
+      
+      return `
+        <span class="correction-badge" data-correction-id="${uniqueId}">
+          <del class="error-text">${escapedOriginal}</del>
+          <ins class="corrected-text">${escapedCorrected}</ins>
+          <button 
+            type="button" 
+            class="correction-info-btn" 
+            aria-label="Explanation for: ${escapedOriginal}"
+            aria-describedby="${tooltipId}"
+            data-explanation="${escapedExplanation}"
+          >
+            ⓘ
+          </button>
+          <div id="${tooltipId}" class="correction-tooltip" role="tooltip">
+            ${escapedExplanation}
+          </div>
+        </span>
+      `;
+    }
+
+    function appendMessage(author, body, kind = "ai", corrections = []) {
       const thread = document.getElementById("chatThread");
       const article = document.createElement("article");
       article.className = `message ${kind === "user" ? "message-user" : "message-ai"}`;
@@ -745,16 +784,72 @@
         article.classList.add("feedback-message");
       }
 
-      article.innerHTML = `
+      let messageContent = `
         <div class="message-meta">
           <span>${escapeHtml(author)}</span>
           <span>${getCurrentTimeLabel()}</span>
         </div>
-        <p>${escapeHtml(body)}</p>
-      `;
+        <p>${escapeHtml(body)}`;
+
+      // Add correction badges for user messages with corrections
+      if (kind === "user" && Array.isArray(corrections) && corrections.length > 0) {
+        messageContent += `
+          <div class="corrections-container">
+            ${corrections.map((correction, index) => buildCorrectionBadge(correction, index)).join("")}
+          </div>`;
+      }
+
+      messageContent += `</p>`;
+
+      article.innerHTML = messageContent;
+
+      // Attach event listeners for correction tooltips
+      article.querySelectorAll(".correction-info-btn").forEach((btn) => {
+        btn.addEventListener("click", function (e) {
+          e.stopPropagation();
+          const tooltip = this.nextElementSibling;
+          if (tooltip && tooltip.classList.contains("correction-tooltip")) {
+            tooltip.classList.toggle("visible");
+          }
+        });
+
+        btn.addEventListener("keydown", function (e) {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            e.stopPropagation();
+            const tooltip = this.nextElementSibling;
+            if (tooltip && tooltip.classList.contains("correction-tooltip")) {
+              tooltip.classList.toggle("visible");
+            }
+          }
+        });
+      });
 
       thread.appendChild(article);
       scrollThreadToBottom();
+    }
+
+    function showTypingIndicator() {
+      const thread = document.getElementById("chatThread");
+      const typingElement = document.createElement("article");
+      typingElement.id = "typingIndicator";
+      typingElement.className = "message message-ai typing-indicator";
+      typingElement.innerHTML = `
+        <div class="message-meta">
+          <span>AI Coach</span>
+          <span>typing...</span>
+        </div>
+        <p><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></p>
+      `;
+      thread.appendChild(typingElement);
+      scrollThreadToBottom();
+    }
+
+    function removeTypingIndicator() {
+      const typingElement = document.getElementById("typingIndicator");
+      if (typingElement) {
+        typingElement.remove();
+      }
     }
 
     function rememberConversationTurn(role, text, type = "message") {
@@ -798,6 +893,8 @@
         currentTargetWord: getCurrentScenarioTargetWord(userMessage),
         learnerMessage: userMessage.trim(),
         conversationHistory: conversationHistory,
+        // New stateful chat history with full context
+        chatHistory: activeChatHistory,
         scenarioProgress: {
           currentStep: scenarioProgressStep,
           totalPlannedSteps: 3
@@ -1410,8 +1507,28 @@
         ? ` I still remember your last exchange, so keep the conversation flowing naturally.`
         : "";
 
+      // Mock corrections array - simulate grammar/spelling analysis
+      const mockCorrections = [];
+      
+      // Simple heuristic: if message is very short, suggest completeness
+      if (trimmedMessage.length < 8) {
+        mockCorrections.push({
+          original: trimmedMessage,
+          corrected: trimmedMessage + " please",
+          explanation: "Add polite markers like 'please' or 'thank you' to complete your request."
+        });
+      } else if (trimmedMessage.charAt(0) === trimmedMessage.charAt(0).toLowerCase()) {
+        // If starts with lowercase, suggest capitalization
+        mockCorrections.push({
+          original: trimmedMessage.charAt(0),
+          corrected: trimmedMessage.charAt(0).toUpperCase(),
+          explanation: "Sentences typically begin with a capital letter for proper English grammar."
+        });
+      }
+
       return {
         reply: conversationReply + memoryNote,
+        corrections: mockCorrections,
         feedback: {
           correction: correction,
           explanation: explanation,
@@ -1457,18 +1574,46 @@
             scenario: payload.scenario.id,
             learnerMessage: payload.learnerMessage,
             weakWords: payload.weakWords,
-            targetWords: payload.targetWords
+            targetWords: payload.targetWords,
+            // Send the full stateful chat history
+            chatHistory: payload.chatHistory
           })
         });
 
-        const result = await response.json();
+        const responseText = await response.text();
+        let result;
+
+        // Try to parse as JSON first
+        try {
+          result = JSON.parse(responseText);
+        } catch (parseError) {
+          // Fallback: treat raw text as conversational reply
+          result = {
+            reply: responseText,
+            corrections: [],
+            feedback: {
+              correction: "Response received",
+              explanation: "The AI coach responded to your message.",
+              challenge: "Continue the conversation naturally."
+            }
+          };
+        }
 
         if (!response.ok) {
           return {
             ok: false,
-            fallbackReason: result.error || "Backend chat request failed."
+            fallbackReason: result.error || result.reply || "Backend chat request failed."
           };
         }
+
+        // Ensure result has required structure
+        result.reply = result.reply || "I understood your message.";
+        result.corrections = Array.isArray(result.corrections) ? result.corrections : [];
+        result.feedback = result.feedback || {
+          correction: "Good effort",
+          explanation: "Keep practicing!",
+          challenge: "Try again."
+        };
 
         return {
           ok: true,
@@ -1773,18 +1918,91 @@
         return;
       }
 
+      // Add user message to activeChatHistory
+      activeChatHistory.push({
+        role: "user",
+        content: userMessage
+      });
+
       const payload = buildAiRequestPayload(userMessage);
-      appendMessage("You", userMessage, "user");
+      
+      // Display user message first (corrections will be added after receiving response)
+      appendMessage("You", userMessage, "user", []);
       rememberConversationTurn("user", userMessage, "message");
       input.value = "";
       sendButton.disabled = true;
       sendButton.textContent = "AI is thinking...";
       showRequestPreview(payload);
+      
+      // Show typing indicator
+      showTypingIndicator();
+      isFetchingAiResponse = true;
 
       const backendResult = await backendAiChatApi(payload);
       const response = backendResult.ok
         ? backendResult.data
         : await mockAiChatApi(payload);
+
+      removeTypingIndicator();
+      isFetchingAiResponse = false;
+      
+      // Add AI response to activeChatHistory
+      activeChatHistory.push({
+        role: "assistant",
+        content: response.reply
+      });
+
+      // Update the user message with corrections if they exist
+      if (Array.isArray(response.corrections) && response.corrections.length > 0) {
+        // Log grammar errors to progress tracking
+        if (typeof logGrammarErrors === "function") {
+          const logResult = logGrammarErrors(response.corrections, lang);
+        }
+
+        // Find the last user message in the chat thread and update it with corrections
+        const chatThread = document.getElementById("chatThread");
+        const userMessages = chatThread.querySelectorAll(".message-user");
+        const lastUserMessage = userMessages[userMessages.length - 1];
+        
+        if (lastUserMessage) {
+          const messageP = lastUserMessage.querySelector("p");
+          if (messageP) {
+            // Rebuild the message with corrections
+            let correctedContent = messageP.textContent;
+            
+            // Add corrections container
+            const correctionsContainer = document.createElement("div");
+            correctionsContainer.className = "corrections-container";
+            correctionsContainer.innerHTML = response.corrections
+              .map((correction, index) => buildCorrectionBadge(correction, index))
+              .join("");
+            
+            messageP.appendChild(correctionsContainer);
+            
+            // Attach event listeners for correction tooltips
+            correctionsContainer.querySelectorAll(".correction-info-btn").forEach((btn) => {
+              btn.addEventListener("click", function (e) {
+                e.stopPropagation();
+                const tooltip = this.nextElementSibling;
+                if (tooltip && tooltip.classList.contains("correction-tooltip")) {
+                  tooltip.classList.toggle("visible");
+                }
+              });
+
+              btn.addEventListener("keydown", function (e) {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const tooltip = this.nextElementSibling;
+                  if (tooltip && tooltip.classList.contains("correction-tooltip")) {
+                    tooltip.classList.toggle("visible");
+                  }
+                }
+              });
+            });
+          }
+        }
+      }
 
       renderAiResponse(response);
       scenarioProgressStep = Math.min(scenarioProgressStep + 1, 3);
@@ -1858,6 +2076,87 @@
       `).join("");
     }
 
+    function renderPracticeScenarios() {
+      const list = document.getElementById("practiceScenariosList");
+      if (!list || typeof PRACTICE_SCENARIOS === "undefined") return;
+
+      list.innerHTML = PRACTICE_SCENARIOS.map((scenario) => `
+        <button
+          type="button"
+          class="practice-scenario-card"
+          onclick="selectPracticeScenario('${scenario.id}')"
+        >
+          <div class="scenario-card-header">
+            <strong>${scenario.title}</strong>
+            <span class="difficulty-badge">${scenario.difficulty}</span>
+          </div>
+          <span class="scenario-card-description">${scenario.description}</span>
+        </button>
+      `).join("");
+    }
+
+    function selectPracticeScenario(scenarioId) {
+      if (typeof PRACTICE_SCENARIOS === "undefined") return;
+
+      const practiceScenario = PRACTICE_SCENARIOS.find(s => s.id === scenarioId);
+      if (!practiceScenario) return;
+
+      // Clear chat thread and reset conversation
+      const chatThread = document.getElementById("chatThread");
+      const openingMessage = document.getElementById("openingAiMessage");
+
+      // Create new message with the scenario's initial message
+      chatThread.innerHTML = `
+        <article class="message message-ai">
+          <div class="message-meta">
+            <span>AI Coach</span>
+            <span>Now</span>
+          </div>
+          <p>${escapeHtml(practiceScenario.initialMessage)}</p>
+        </article>
+      `;
+
+      // Update stage information
+      document.getElementById("stageTitle").textContent = practiceScenario.title;
+      document.getElementById("stageDescription").textContent = practiceScenario.description;
+      document.getElementById("targetSkill").textContent = `Role: ${practiceScenario.difficulty}`;
+      
+      // Initialize stateful conversation history for this scenario
+      currentScenarioAiRole = practiceScenario.aiRole;
+      activeChatHistory = [
+        {
+          role: "system",
+          content: practiceScenario.aiRole
+        },
+        {
+          role: "assistant",
+          content: practiceScenario.initialMessage
+        }
+      ];
+      
+      // Update legacy conversation history for backward compatibility
+      conversationHistory = [
+        {
+          role: "assistant",
+          type: "reply",
+          text: practiceScenario.initialMessage
+        }
+      ];
+
+      // Reset chat input
+      document.getElementById("chatInput").value = "";
+      setHelperText(`Practice scenario "${practiceScenario.title}" has started. ${practiceScenario.description}`);
+      
+      // Close sidebar on mobile after selection
+      const sidebarToggleBtn = document.getElementById("sidebarToggleBtn");
+      const sidebar = document.querySelector(".ai-sidebar");
+      if (window.innerWidth <= 768 && sidebar && sidebar.classList.contains("sidebar-open")) {
+        sidebar.classList.remove("sidebar-open");
+        if (sidebarToggleBtn) sidebarToggleBtn.setAttribute("aria-expanded", "false");
+      }
+    }
+    window.selectPracticeScenario = selectPracticeScenario;
+
     function applyScenario(scenario) {
       scenarioProgressStep = 1;
       activeScenarioTargets = buildScenarioTargetWords(scenario.id);
@@ -1907,6 +2206,7 @@
     renderScenarioList();
     renderGoals();
     renderWeakWords();
+    renderPracticeScenarios();
     applyScenario(activeScenario);
 
     document.getElementById("sendMessageBtn").addEventListener("click", handleSendMessage);
@@ -1920,6 +2220,17 @@
     document.querySelectorAll(".channel-btn").forEach(button => {
       button.addEventListener("click", handleChannelButtonClick);
     });
+
+    // Sidebar toggle for mobile
+    const sidebarToggleBtn = document.getElementById("sidebarToggleBtn");
+    if (sidebarToggleBtn) {
+      sidebarToggleBtn.addEventListener("click", function() {
+        const sidebar = document.querySelector(".ai-sidebar");
+        const isOpen = sidebar.classList.toggle("sidebar-open");
+        this.setAttribute("aria-expanded", isOpen);
+      });
+    }
+
     document.getElementById("chatInput").addEventListener("keydown", event => {
       if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
         handleSendMessage();

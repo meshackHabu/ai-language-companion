@@ -27,7 +27,7 @@ This is the first backend starter for the AI Language Companion.
 
 The backend should start on:
 
-`http://localhost:4000`
+`http://localhost:5500`
 
 ## AI provider switch (important)
 
@@ -59,7 +59,7 @@ After changing `.env`, restart backend:
 
 The frontend and backend are separate:
 
-- your HTML pages are the frontend
+- HTML pages are the frontend
 - this Node.js folder is the backend
 
 Later, the frontend will send requests to this backend instead of saving everything only in local storage.

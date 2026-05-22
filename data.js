@@ -2205,5 +2205,48 @@ const flashcardData = Object.fromEntries(
     Object.keys(flashcardLibrary).map(lang => [lang, getDeckForLanguage(lang)])
 );
 
+const PRACTICE_SCENARIOS = [
+    {
+        id: "hotel_checkin",
+        title: "Checking into a Hotel",
+        description: "Practice asking for room keys and clarifying check-out times.",
+        aiRole: "Act as a busy hotel receptionist in London.",
+        initialMessage: "Hello, welcome to the Grand Plaza. Do you have a reservation under your name?",
+        difficulty: "Intermediate"
+    },
+    {
+        id: "restaurant_ordering",
+        title: "Ordering at a Restaurant",
+        description: "Practice ordering food, asking about ingredients, and requesting special modifications.",
+        aiRole: "Act as a friendly waiter in a Parisian café.",
+        initialMessage: "Good evening! Welcome to our restaurant. Have you dined with us before?",
+        difficulty: "Beginner"
+    },
+    {
+        id: "airport_checkin",
+        title: "Airport Check-in",
+        description: "Practice checking in at the airport, managing luggage, and understanding boarding procedures.",
+        aiRole: "Act as a professional airline check-in agent at Heathrow Airport.",
+        initialMessage: "Good morning! Welcome to our airline. I'll be checking you in today. May I see your passport and booking reference?",
+        difficulty: "Intermediate"
+    },
+    {
+        id: "doctor_appointment",
+        title: "Doctor's Appointment",
+        description: "Practice describing symptoms, understanding medical questions, and scheduling follow-ups.",
+        aiRole: "Act as a caring doctor in a NHS clinic in Manchester.",
+        initialMessage: "Hello, I'm Dr. Smith. What brings you in today? Please describe your symptoms.",
+        difficulty: "Advanced"
+    },
+    {
+        id: "job_interview",
+        title: "Job Interview",
+        description: "Practice answering interview questions, discussing experience, and asking about the role.",
+        aiRole: "Act as a professional HR manager conducting an interview for a tech company.",
+        initialMessage: "Thank you for coming in today. Tell me a bit about your background and why you're interested in this position.",
+        difficulty: "Advanced"
+    }
+];
+
 window.DATASET_VERSION = DATASET_VERSION;
 window.DATASET_SOURCE = DATASET_SOURCE;
