@@ -113,6 +113,7 @@
       <section class="chat-layout">
         <div class="chat-panel">
           <div class="chat-toolbar">
+            <button class="sidebar-toggle-btn" id="chatToolbarToggleBtn" type="button" aria-label="Toggle sidebar" aria-expanded="false">☰</button>
             <div class="chat-channel-toggle">
               <button class="channel-btn active" type="button" data-channel="text">Text</button>
               <button class="channel-btn" type="button" data-channel="voice">Voice</button>
@@ -226,7 +227,13 @@
     let lang = params.get("lang") || localStorage.getItem("selectedLanguage") || "yoruba";
     const selectedCategory = params.get("category") || localStorage.getItem("selectedCategory") || "all";
     const selectedStudyMode = params.get("studyMode") || localStorage.getItem("selectedStudyMode") || "level";
-    const API_BASE_URL = "http://localhost:5500";
+    
+    // Only declare API_BASE_URL if not already defined (progress.js may have declared it globally)
+    if (typeof API_BASE_URL === "undefined") {
+      const API_BASE_URL = "http://localhost:5500";
+    }
+    // Access the global API_BASE_URL (set by progress.js or declared above)
+    const currentApiUrl = window.API_BASE_URL || "http://localhost:5500";
 
     localStorage.setItem("selectedLanguage", lang);
     localStorage.setItem("selectedCategory", selectedCategory);
@@ -1563,7 +1570,7 @@
       }
 
       try {
-        const response = await fetch(`${API_BASE_URL}/ai/chat`, {
+        const response = await fetch(`${currentApiUrl}/ai/chat`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json"
@@ -2221,15 +2228,35 @@
       button.addEventListener("click", handleChannelButtonClick);
     });
 
-    // Sidebar toggle for mobile
-    const sidebarToggleBtn = document.getElementById("sidebarToggleBtn");
-    if (sidebarToggleBtn) {
-      sidebarToggleBtn.addEventListener("click", function() {
-        const sidebar = document.querySelector(".ai-sidebar");
-        const isOpen = sidebar.classList.toggle("sidebar-open");
-        this.setAttribute("aria-expanded", isOpen);
-      });
+    // Sidebar toggle for mobile (both buttons)
+    function setupSidebarToggle(buttonId) {
+      const button = document.getElementById(buttonId);
+      if (button) {
+        button.addEventListener("click", function(e) {
+          e.stopPropagation();
+          const sidebar = document.querySelector(".ai-sidebar");
+          const isOpen = sidebar.classList.toggle("sidebar-open");
+          this.setAttribute("aria-expanded", isOpen);
+        });
+      }
     }
+    
+    // Setup toggle for both sidebar toggle buttons
+    setupSidebarToggle("sidebarToggleBtn");
+    setupSidebarToggle("chatToolbarToggleBtn");
+    
+    // Close sidebar when clicking outside on mobile
+    document.addEventListener("click", function(e) {
+      const sidebar = document.querySelector(".ai-sidebar");
+      const toggleBtns = document.querySelectorAll(".sidebar-toggle-btn");
+      const isClickOnSidebar = sidebar && sidebar.contains(e.target);
+      const isClickOnToggle = Array.from(toggleBtns).some(btn => btn.contains(e.target));
+      
+      if (!isClickOnSidebar && !isClickOnToggle && sidebar && sidebar.classList.contains("sidebar-open")) {
+        sidebar.classList.remove("sidebar-open");
+        toggleBtns.forEach(btn => btn.setAttribute("aria-expanded", "false"));
+      }
+    });
 
     document.getElementById("chatInput").addEventListener("keydown", event => {
       if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
