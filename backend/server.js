@@ -28,6 +28,7 @@ app.use("/auth", authRoutes);
 app.use("/user", profileRoutes);
 app.use("/progress", progressRoutes);
 app.use("/ai", chatRoutes);
+app.use("/api", chatRoutes);
 app.use("/admin", adminRoutes);
 
 initializeDatabase()

@@ -210,7 +210,7 @@
             <div class="ai-panel-head">
               <h2>Suggested Actions</h2>
             </div>
-            <div class="suggested-actions">
+            <div class="suggested-actions" id="suggestedActionsContainer">
               <button class="suggestion-btn" type="button" id="marketSceneBtn">Roleplay marketplace scene</button>
               <button class="suggestion-btn" type="button" id="weakWordsBtn">Practice 3 weak words aloud</button>
               <button class="suggestion-btn" type="button" id="slowCoachBtn">Ask AI to speak slower</button>
@@ -1634,10 +1634,284 @@
       }
     }
 
+    function showConnectionWarning(message = "Connection issue detected. Retrying...") {
+      let banner = document.getElementById("connectionWarningBanner");
+      if (!banner) {
+        banner = document.createElement("div");
+        banner.id = "connectionWarningBanner";
+        banner.className = "connection-warning-banner";
+        document.body.insertBefore(banner, document.body.firstChild);
+      }
+      banner.textContent = message;
+      banner.style.display = "block";
+      banner.classList.add("show");
+    }
+
+    function hideConnectionWarning() {
+      const banner = document.getElementById("connectionWarningBanner");
+      if (banner) {
+        banner.classList.remove("show");
+        setTimeout(() => {
+          if (banner && banner.parentNode) {
+            banner.style.display = "none";
+          }
+        }, 300);
+      }
+    }
+
+    function getExponentialBackoffDelay(attempt, baseDelay = 1000, maxDelay = 16000) {
+      const exponentialDelay = Math.min(maxDelay, baseDelay * Math.pow(2, attempt));
+      const jitter = Math.random() * 1000;
+      return exponentialDelay + jitter;
+    }
+
+    function checkNetworkStatus() {
+      return navigator.onLine;
+    }
+
+    async function streamAiChatResponseWithRetry(userMessage, history, scenarioId, maxAttempts = 3) {
+      let lastError = null;
+      
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        try {
+          if (!checkNetworkStatus() && attempt === 0) {
+            showConnectionWarning("You appear to be offline. Switching to offline mode with cached scenarios.");
+            throw new Error("User is offline");
+          }
+
+          return await streamAiChatResponse(userMessage, history, scenarioId);
+        } catch (error) {
+          lastError = error;
+          const isNetworkError = error.name === "AbortError" || 
+                                error.message.includes("offline") ||
+                                error.message.includes("Failed to fetch");
+
+          if (isNetworkError && attempt < maxAttempts - 1) {
+            const delay = getExponentialBackoffDelay(attempt);
+            showConnectionWarning(`Connection lost. Retrying in ${Math.round(delay / 1000)}s... (Attempt ${attempt + 1}/${maxAttempts - 1})`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            continue;
+          }
+
+          if (isNetworkError && attempt === maxAttempts - 1) {
+            hideConnectionWarning();
+            throw new Error("All retry attempts failed. Falling back to offline mode.");
+          }
+
+          throw error;
+        }
+      }
+
+      throw lastError || new Error("Streaming failed after all retry attempts");
+    }
+
+    async function streamAiChatResponse(userMessage, history, scenarioId) {
+      const STREAM_TIMEOUT_MS = 12000;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), STREAM_TIMEOUT_MS);
+
+      try {
+        const thread = document.getElementById("chatThread");
+        const article = document.createElement("article");
+        article.className = "message message-ai";
+        article.innerHTML = `
+          <div class="message-meta">
+            <span>AI Coach</span>
+            <span>Now</span>
+          </div>
+          <p class="streaming-text"></p>
+        `;
+        thread.appendChild(article);
+        const textParagraph = article.querySelector("p.streaming-text");
+        article.scrollIntoView({ behavior: "smooth", block: "end" });
+
+        const response = await fetch(`${currentApiUrl}/api/chat/stream`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            message: userMessage,
+            history: history,
+            scenario: scenarioId
+          }),
+          signal: controller.signal
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          article.remove();
+          throw new Error(`Stream API error (${response.status}): ${errorText || response.statusText}`);
+        }
+
+        if (!response.body) {
+          article.remove();
+          throw new Error("Response body is not readable");
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder("utf-8");
+        let fullReply = "";
+        let buffer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const parts = buffer.split("\n");
+          buffer = parts.pop();
+
+          for (const part of parts) {
+            const trimmed = part.trim();
+            if (!trimmed.startsWith("data:")) continue;
+
+            const payload = trimmed.replace(/^data:\s*/, "");
+            if (payload === "[DONE]") {
+              break;
+            }
+
+            try {
+              const parsed = JSON.parse(payload);
+              const content = parsed.choices?.[0]?.delta?.content;
+              if (content) {
+                fullReply += content;
+                textParagraph.textContent = fullReply;
+                article.scrollIntoView({ behavior: "smooth", block: "end" });
+              }
+            } catch (parseError) {
+              continue;
+            }
+          }
+        }
+
+        const flushed = decoder.decode();
+        if (flushed) {
+          buffer += flushed;
+        }
+
+        if (buffer.trim()) {
+          const leftoverParts = buffer.split("\n");
+          for (const part of leftoverParts) {
+            const trimmed = part.trim();
+            if (!trimmed.startsWith("data:")) continue;
+            const payload = trimmed.replace(/^data:\s*/, "");
+            if (payload === "[DONE]") {
+              break;
+            }
+            try {
+              const parsed = JSON.parse(payload);
+              const content = parsed.choices?.[0]?.delta?.content;
+              if (content) {
+                fullReply += content;
+              }
+            } catch (parseError) {
+              continue;
+            }
+          }
+          textParagraph.textContent = fullReply;
+        }
+
+        clearTimeout(timeoutId);
+        return {
+          ok: true,
+          reply: fullReply,
+          article
+        };
+      } catch (error) {
+        clearTimeout(timeoutId);
+        if (error.name === "AbortError") {
+          throw new Error("Stream request timed out after 12 seconds. Please check your connection.");
+        }
+        throw error;
+      }
+    }
+
     function renderAiResponse(response) {
       appendMessage("AI Coach", response.reply, "ai");
       rememberConversationTurn("assistant", response.reply, "reply");
       updateCoachFeedback(response);
+    }
+
+    function renderSuggestedActions(actions) {
+      const container = document.getElementById("suggestedActionsContainer");
+      if (!container) {
+        console.warn("renderSuggestedActions: suggestedActionsContainer not found");
+        return;
+      }
+
+      // Validate input
+      if (!actions) {
+        console.warn("renderSuggestedActions: no actions provided");
+        container.innerHTML = "";
+        return;
+      }
+
+      const normalized = Array.isArray(actions) ? actions : [];
+      if (!normalized.length) {
+        container.innerHTML = "";
+        return;
+      }
+
+      // Clear previous suggestions before rendering
+      container.innerHTML = "";
+
+      // Build and insert new buttons
+      const fragment = document.createDocumentFragment();
+      normalized.forEach((action, index) => {
+        // Validate action object
+        if (!action || typeof action !== "object") {
+          console.warn(`renderSuggestedActions: skipping invalid action at index ${index}`, action);
+          return;
+        }
+
+        const id = escapeHtml(String(action.id || action.type || `suggestion-${index}`));
+        const label = escapeHtml(String(action.label || action.title || action.name || `Suggestion ${index + 1}`));
+        const cssClass = action.active ? "suggestion-btn active" : "suggestion-btn";
+
+        const button = document.createElement("button");
+        button.className = cssClass;
+        button.type = "button";
+        button.dataset.suggestion = id;
+        button.textContent = label;
+        button.addEventListener("click", handleSuggestedActionClick);
+
+        fragment.appendChild(button);
+      });
+
+      container.appendChild(fragment);
+    }
+
+    function handleSuggestedActionClick(event) {
+      const action = event.currentTarget.dataset.suggestion;
+      switch (action) {
+        case "marketSceneBtn":
+        case "market":
+          handleSuggestedMarketplace();
+          break;
+        case "weakWordsBtn":
+        case "weakWords":
+          handleSuggestedWeakWords();
+          break;
+        case "slowCoachBtn":
+        case "slowCoach":
+          handleSuggestedSlowCoach();
+          break;
+        case "listeningModeBtn":
+        case "listeningMode":
+          handleSuggestedListeningMode();
+          break;
+        default:
+          setHelperText(`Suggestion selected: ${action}`);
+      }
+    }
+
+    function updateVoiceMeterScore(score) {
+      const bars = document.querySelectorAll(".voice-meter .voice-bar");
+      const activeCount = Math.min(Math.max(Math.round(Number(score) / 20), 0), bars.length);
+      bars.forEach((bar, index) => {
+        bar.classList.toggle("active", index < activeCount);
+      });
     }
 
     function showRequestPreview(payload) {
@@ -1655,13 +1929,49 @@
     }
 
     function updateCoachFeedback(response) {
-      document.getElementById("correctionHint").textContent = response.feedback.correction;
-      document.getElementById("grammarHint").textContent = response.feedback.explanation;
-      document.getElementById("confidenceHint").textContent = response.feedback.challenge;
-      document.getElementById("pronunciationStatus").textContent =
-        selectedStudyMode === "adaptive"
-          ? "Adaptive speech scoring will guide easier and harder turns."
-          : "Level-matched speech scoring will stay focused.";
+      if (!response || typeof response !== "object") {
+        console.warn("updateCoachFeedback: invalid response object", response);
+        return;
+      }
+
+      const metrics = response.metrics || {};
+      const feedback = response.feedback || {};
+
+      // Validate and safely extract fields with multiple fallback levels
+      const voiceScoreValue = metrics.voiceScore ?? feedback.voiceScore ?? feedback.score ?? null;
+      const betterSentence = (metrics.betterSentence || feedback.correction || "").trim() || "AI will suggest a cleaner version of your sentence here.";
+      const whatToFix = (metrics.whatToFix || feedback.explanation || "").trim() || "AI will flag tense, tone, and sentence structure.";
+      const nextReplyHint = (metrics.nextReply || feedback.challenge || "").trim() || "Supportive coaching enabled";
+
+      // Safely update DOM elements with null checks
+      const correctionHintEl = document.getElementById("correctionHint");
+      const grammarHintEl = document.getElementById("grammarHint");
+      const confidenceHintEl = document.getElementById("confidenceHint");
+      const pronunciationStatusEl = document.getElementById("pronunciationStatus");
+
+      if (correctionHintEl) correctionHintEl.textContent = betterSentence;
+      if (grammarHintEl) grammarHintEl.textContent = whatToFix;
+      if (confidenceHintEl) confidenceHintEl.textContent = nextReplyHint;
+
+      if (pronunciationStatusEl) {
+        if (voiceScoreValue !== null && voiceScoreValue !== undefined) {
+          pronunciationStatusEl.textContent = `Voice score: ${voiceScoreValue}${typeof voiceScoreValue === "number" ? "%" : ""}`;
+        } else {
+          pronunciationStatusEl.textContent = selectedStudyMode === "adaptive"
+            ? "Adaptive speech scoring will guide easier and harder turns."
+            : "Level-matched speech scoring will stay focused.";
+        }
+      }
+
+      // Update voice meter if score is available
+      if (voiceScoreValue !== null && voiceScoreValue !== undefined && typeof updateVoiceMeterScore === "function") {
+        updateVoiceMeterScore(voiceScoreValue);
+      }
+
+      // Render suggestions if available
+      if (Array.isArray(metrics.suggestions) && metrics.suggestions.length > 0 && typeof renderSuggestedActions === "function") {
+        renderSuggestedActions(metrics.suggestions);
+      }
     }
 
     function refreshScenarioStage() {
@@ -1945,10 +2255,57 @@
       showTypingIndicator();
       isFetchingAiResponse = true;
 
-      const backendResult = await backendAiChatApi(payload);
-      const response = backendResult.ok
-        ? backendResult.data
-        : await mockAiChatApi(payload);
+      let response = null;
+      let streamSuccess = false;
+      let streamResult = null;
+      let backendResult = null;
+      let offlineMode = false;
+
+      try {
+        streamResult = await streamAiChatResponseWithRetry(
+          userMessage,
+          activeChatHistory,
+          activeScenario.id,
+          3
+        );
+        streamSuccess = true;
+        hideConnectionWarning();
+        response = {
+          reply: streamResult.reply,
+          corrections: [],
+          feedback: {
+            correction: "AI coach response streamed successfully.",
+            explanation: "Your answer arrived in real time from the backend.",
+            challenge: "Keep the conversation going with the next turn."
+          }
+        };
+      } catch (streamError) {
+        console.warn("Streaming API failed after retries.", streamError);
+        const isNetworkError = streamError.message.includes("offline") || 
+                              streamError.message.includes("All retry attempts failed");
+
+        if (isNetworkError && !checkNetworkStatus()) {
+          offlineMode = true;
+          showConnectionWarning("Offline mode: Using cached scenarios and local AI responses.");
+          setHelperText("You are offline. The app is now using cached data and mock AI. Your progress will sync when you reconnect.");
+          response = await mockAiChatApi(payload);
+        } else if (isNetworkError) {
+          showConnectionWarning("Connection issues detected. Trying backend fallback...");
+          backendResult = await backendAiChatApi(payload);
+          response = backendResult.ok
+            ? backendResult.data
+            : await mockAiChatApi(payload);
+
+          if (!backendResult.ok && !response) {
+            throw new Error("All fallback methods failed.");
+          }
+        } else {
+          backendResult = await backendAiChatApi(payload);
+          response = backendResult.ok
+            ? backendResult.data
+            : await mockAiChatApi(payload);
+        }
+      }
 
       removeTypingIndicator();
       isFetchingAiResponse = false;
@@ -1959,11 +2316,18 @@
         content: response.reply
       });
 
+      if (streamSuccess) {
+        rememberConversationTurn("assistant", response.reply, "reply");
+      }
+
       // Update the user message with corrections if they exist
       if (Array.isArray(response.corrections) && response.corrections.length > 0) {
         // Log grammar errors to progress tracking
         if (typeof logGrammarErrors === "function") {
           const logResult = logGrammarErrors(response.corrections, lang);
+          if (logResult.logged && typeof recordStudyActivity === "function") {
+            recordStudyActivity(lang);
+          }
         }
 
         // Find the last user message in the chat thread and update it with corrections
@@ -2011,16 +2375,23 @@
         }
       }
 
-      renderAiResponse(response);
+      if (!streamSuccess) {
+        renderAiResponse(response);
+      } else {
+        updateCoachFeedback(response);
+      }
+
       scenarioProgressStep = Math.min(scenarioProgressStep + 1, 3);
       refreshScenarioStage();
       sendButton.disabled = false;
       sendButton.textContent = "Send to AI";
 
-      if (backendResult.ok) {
+      if (streamSuccess) {
+        setHelperText("AI response streamed live from the backend.");
+      } else if (backendResult && backendResult.ok) {
         setHelperText("This turn came from the backend AI route. Later, switching to paid AI will mostly be a backend provider change.");
       } else {
-        setHelperText(`Backend chat was unavailable, so the page used local mock AI instead. ${backendResult.fallbackReason || ""}`.trim());
+        setHelperText(`Backend chat was unavailable, so the page used local mock AI instead. ${backendResult?.fallbackReason || ""}`.trim());
       }
     }
 

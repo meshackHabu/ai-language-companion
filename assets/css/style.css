@@ -1492,6 +1492,7 @@ button:disabled {
   border-radius: 999px;
   background: #dbe6f8;
   height: 28px;
+  transition: height 0.4s ease, background 0.4s ease;
 }
 
 .voice-bar.active:nth-child(1) { height: 58px; }
@@ -2213,5 +2214,40 @@ button,
     padding: 0.5rem;
     font-size: 0.75rem;
     line-height: 1.4;
+  }
+}
+
+/* Connection warning banner */
+.connection-warning-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(135deg, #d4692a 0%, #e84c3d 100%);
+  color: #ffffff;
+  padding: 12px 20px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  display: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: 9999;
+  animation: slideDown 0.3s ease forwards;
+}
+
+.connection-warning-banner.show {
+  opacity: 1;
+}
+
+@keyframes slideDown {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
   }
 }
