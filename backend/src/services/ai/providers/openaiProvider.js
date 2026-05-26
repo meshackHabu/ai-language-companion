@@ -1,4 +1,5 @@
-const { getEnvConfig } = require("../../../config/env");
+const { OpenAI } = require("openai");
+require('dotenv').config();
 
 function buildSystemPrompt(input) {
   const weakWords = input.weakWords?.map(item => item.word).join(", ") || "none";
@@ -52,13 +53,11 @@ function buildMessagesFromHistory(input) {
   const messages = [];
   const chatHistory = input.chatHistory || [];
 
-  // Add system message
   messages.push({
     role: "system",
     content: buildSystemPrompt(input)
   });
 
-  // Add chat history messages (excluding system messages since we built our own)
   for (const msg of chatHistory) {
     if (msg.role !== "system") {
       messages.push({
@@ -68,7 +67,6 @@ function buildMessagesFromHistory(input) {
     }
   }
 
-  // If no user message at the end (from history), add the current learner message
   if (!messages[messages.length - 1] || messages[messages.length - 1].role !== "user") {
     messages.push({
       role: "user",
@@ -80,86 +78,80 @@ function buildMessagesFromHistory(input) {
 }
 
 function normalizeResponse(parsed) {
-  // Ensure corrections is an array
   if (!Array.isArray(parsed.corrections)) {
     parsed.corrections = [];
   }
-
-  // Validate each correction object
   parsed.corrections = parsed.corrections.map(correction => ({
     original: correction.original || "",
     corrected: correction.corrected || "",
     explanation: correction.explanation || ""
   }));
-
-  // Ensure reply exists
   if (!parsed.reply) {
     parsed.reply = "Let's continue this conversation!";
   }
-
   return parsed;
 }
 
-async function buildOpenAiResponse(input) {
-  const env = getEnvConfig();
+async function buildOpenAiResponse(messages, options = {}) {
+  try {
+    // 1. Initialize with required OpenRouter rankings headers
+    const openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY ? process.env.OPENAI_API_KEY.trim() : "",
+      baseURL: "https://openrouter.ai/api/v1",
+      defaultHeaders: {
+        "HTTP-Referer": "http://localhost:5500", 
+        "X-Title": "AI Language Companion",
+      }
+    });
 
-  if (!env.openAiApiKey) {
-    throw new Error("OPENAI_API_KEY is missing. Set it in your environment before using AI_PROVIDER=openai.");
-  }
-
-  // Build messages from full chat history or use legacy single-message format
-  const messages = input.chatHistory && input.chatHistory.length > 0
-    ? buildMessagesFromHistory(input)
-    : [
-        { role: "system", content: buildSystemPrompt(input) },
-        { role: "user", content: input.learnerMessage }
-      ];
-
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${env.openAiApiKey}`
-    },
-    body: JSON.stringify({
-      model: env.openAiModel,
-      temperature: 0.4,
-      response_format: { type: "json_object" },
-      messages: messages
-    })
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`OpenAI request failed (${response.status}): ${errorText}`);
-  }
-
-  const payload = await response.json();
-  const content = payload.choices?.[0]?.message?.content || "";
-  const parsed = parseJsonContent(content);
-
-  if (!parsed || !parsed.reply) {
-    throw new Error("OpenAI returned invalid JSON format. Expected 'reply' field.");
-  }
-
-  // Normalize the response to ensure proper structure
-  const normalized = normalizeResponse(parsed);
-
-  return {
-    corrections: normalized.corrections,
-    reply: normalized.reply,
-    feedback: {
-      correction: "See corrections array above.",
-      explanation: `Found ${normalized.corrections.length} error(s) in your message.`,
-      challenge: "Try again with the corrections in mind."
-    },
-    meta: {
-      provider: "openai",
-      model: env.openAiModel,
-      historyLength: input.chatHistory?.length || 0,
-      errorsFound: normalized.corrections.length
+    // 2. Safe parsing extraction check for incoming payloads
+    let finalMessages = [];
+    
+    if (Array.isArray(messages)) {
+      finalMessages = messages;
+    } else if (messages && Array.isArray(messages.messages)) {
+      finalMessages = messages.messages;
+    } else if (options && Array.isArray(options.messages)) {
+      finalMessages = options.messages;
+    } else if (messages && (messages.learnerMessage || messages.chatHistory)) {
+      // Direct call parsing from raw router input object payload
+      finalMessages = buildMessagesFromHistory(messages);
+    } else if (typeof messages === 'string') {
+      finalMessages = [{ role: "user", content: messages }];
     }
-  };
+
+    if (finalMessages.length === 0) {
+      console.warn("[OpenRouter] Falling back to default system prompt construction.");
+      finalMessages = [{ role: "user", content: "Hello" }];
+    }
+
+    // 3. Clean and sanitize model name cleanly
+    let envModel = process.env.OPENAI_MODEL;
+    if (envModel && typeof envModel === 'object') {
+      envModel = envModel.openAiModel;
+    }
+    
+    const cleanModel = envModel ? String(envModel).trim().replace(/\.+$/, "") : "google/gemini-2.5-flash:free";
+
+    console.log(`[OpenRouter] Sending clean payload with ${finalMessages.length} message(s) to model: "${cleanModel}"`);
+    
+    // 4. Fire execution request block
+    const completion = await openai.chat.completions.create({
+      model: cleanModel,
+      messages: finalMessages,
+      temperature: 0.4
+    });
+
+    if (completion.choices && completion.choices[0]) {
+      return completion.choices[0].message.content;
+    }
+    
+    throw new Error("Empty response structure received from OpenRouter.");
+
+  } catch (error) {
+    console.error("Core OpenRouter Provider Execution Error:", error.message);
+    throw error;
+  }
 }
 
 module.exports = {

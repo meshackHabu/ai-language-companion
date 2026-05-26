@@ -211,6 +211,7 @@
               <h2>Suggested Actions</h2>
             </div>
             <div class="suggested-actions" id="suggestedActionsContainer">
+            <div class="suggested-actions" id="suggestedActionsContainer">
               <button class="suggestion-btn" type="button" id="marketSceneBtn">Roleplay marketplace scene</button>
               <button class="suggestion-btn" type="button" id="weakWordsBtn">Practice 3 weak words aloud</button>
               <button class="suggestion-btn" type="button" id="slowCoachBtn">Ask AI to speak slower</button>
@@ -1914,6 +1915,87 @@
       });
     }
 
+    function renderSuggestedActions(actions) {
+      const container = document.getElementById("suggestedActionsContainer");
+      if (!container) {
+        console.warn("renderSuggestedActions: suggestedActionsContainer not found");
+        return;
+      }
+
+      // Validate input
+      if (!actions) {
+        console.warn("renderSuggestedActions: no actions provided");
+        container.innerHTML = "";
+        return;
+      }
+
+      const normalized = Array.isArray(actions) ? actions : [];
+      if (!normalized.length) {
+        container.innerHTML = "";
+        return;
+      }
+
+      // Clear previous suggestions before rendering
+      container.innerHTML = "";
+
+      // Build and insert new buttons
+      const fragment = document.createDocumentFragment();
+      normalized.forEach((action, index) => {
+        // Validate action object
+        if (!action || typeof action !== "object") {
+          console.warn(`renderSuggestedActions: skipping invalid action at index ${index}`, action);
+          return;
+        }
+
+        const id = escapeHtml(String(action.id || action.type || `suggestion-${index}`));
+        const label = escapeHtml(String(action.label || action.title || action.name || `Suggestion ${index + 1}`));
+        const cssClass = action.active ? "suggestion-btn active" : "suggestion-btn";
+
+        const button = document.createElement("button");
+        button.className = cssClass;
+        button.type = "button";
+        button.dataset.suggestion = id;
+        button.textContent = label;
+        button.addEventListener("click", handleSuggestedActionClick);
+
+        fragment.appendChild(button);
+      });
+
+      container.appendChild(fragment);
+    }
+
+    function handleSuggestedActionClick(event) {
+      const action = event.currentTarget.dataset.suggestion;
+      switch (action) {
+        case "marketSceneBtn":
+        case "market":
+          handleSuggestedMarketplace();
+          break;
+        case "weakWordsBtn":
+        case "weakWords":
+          handleSuggestedWeakWords();
+          break;
+        case "slowCoachBtn":
+        case "slowCoach":
+          handleSuggestedSlowCoach();
+          break;
+        case "listeningModeBtn":
+        case "listeningMode":
+          handleSuggestedListeningMode();
+          break;
+        default:
+          setHelperText(`Suggestion selected: ${action}`);
+      }
+    }
+
+    function updateVoiceMeterScore(score) {
+      const bars = document.querySelectorAll(".voice-meter .voice-bar");
+      const activeCount = Math.min(Math.max(Math.round(Number(score) / 20), 0), bars.length);
+      bars.forEach((bar, index) => {
+        bar.classList.toggle("active", index < activeCount);
+      });
+    }
+
     function showRequestPreview(payload) {
       const summary = [
         `Mock request ready`,
@@ -1929,6 +2011,49 @@
     }
 
     function updateCoachFeedback(response) {
+      if (!response || typeof response !== "object") {
+        console.warn("updateCoachFeedback: invalid response object", response);
+        return;
+      }
+
+      const metrics = response.metrics || {};
+      const feedback = response.feedback || {};
+
+      // Validate and safely extract fields with multiple fallback levels
+      const voiceScoreValue = metrics.voiceScore ?? feedback.voiceScore ?? feedback.score ?? null;
+      const betterSentence = (metrics.betterSentence || feedback.correction || "").trim() || "AI will suggest a cleaner version of your sentence here.";
+      const whatToFix = (metrics.whatToFix || feedback.explanation || "").trim() || "AI will flag tense, tone, and sentence structure.";
+      const nextReplyHint = (metrics.nextReply || feedback.challenge || "").trim() || "Supportive coaching enabled";
+
+      // Safely update DOM elements with null checks
+      const correctionHintEl = document.getElementById("correctionHint");
+      const grammarHintEl = document.getElementById("grammarHint");
+      const confidenceHintEl = document.getElementById("confidenceHint");
+      const pronunciationStatusEl = document.getElementById("pronunciationStatus");
+
+      if (correctionHintEl) correctionHintEl.textContent = betterSentence;
+      if (grammarHintEl) grammarHintEl.textContent = whatToFix;
+      if (confidenceHintEl) confidenceHintEl.textContent = nextReplyHint;
+
+      if (pronunciationStatusEl) {
+        if (voiceScoreValue !== null && voiceScoreValue !== undefined) {
+          pronunciationStatusEl.textContent = `Voice score: ${voiceScoreValue}${typeof voiceScoreValue === "number" ? "%" : ""}`;
+        } else {
+          pronunciationStatusEl.textContent = selectedStudyMode === "adaptive"
+            ? "Adaptive speech scoring will guide easier and harder turns."
+            : "Level-matched speech scoring will stay focused.";
+        }
+      }
+
+      // Update voice meter if score is available
+      if (voiceScoreValue !== null && voiceScoreValue !== undefined && typeof updateVoiceMeterScore === "function") {
+        updateVoiceMeterScore(voiceScoreValue);
+      }
+
+      // Render suggestions if available
+      if (Array.isArray(metrics.suggestions) && metrics.suggestions.length > 0 && typeof renderSuggestedActions === "function") {
+        renderSuggestedActions(metrics.suggestions);
+      }
       if (!response || typeof response !== "object") {
         console.warn("updateCoachFeedback: invalid response object", response);
         return;
@@ -2225,7 +2350,8 @@
       }, 1500);
     }
 
-    async function handleSendMessage() {
+    async function handleSendMessage(event) {
+      if (event && typeof event.preventDefault === "function") event.preventDefault();
       const input = document.getElementById("chatInput");
       const sendButton = document.getElementById("sendMessageBtn");
       const userMessage = input.value.trim();
@@ -2320,11 +2446,18 @@
         rememberConversationTurn("assistant", response.reply, "reply");
       }
 
+      if (streamSuccess) {
+        rememberConversationTurn("assistant", response.reply, "reply");
+      }
+
       // Update the user message with corrections if they exist
       if (Array.isArray(response.corrections) && response.corrections.length > 0) {
         // Log grammar errors to progress tracking
         if (typeof logGrammarErrors === "function") {
           const logResult = logGrammarErrors(response.corrections, lang);
+          if (logResult.logged && typeof recordStudyActivity === "function") {
+            recordStudyActivity(lang);
+          }
           if (logResult.logged && typeof recordStudyActivity === "function") {
             recordStudyActivity(lang);
           }
@@ -2381,6 +2514,12 @@
         updateCoachFeedback(response);
       }
 
+      if (!streamSuccess) {
+        renderAiResponse(response);
+      } else {
+        updateCoachFeedback(response);
+      }
+
       scenarioProgressStep = Math.min(scenarioProgressStep + 1, 3);
       refreshScenarioStage();
       sendButton.disabled = false;
@@ -2389,8 +2528,12 @@
       if (streamSuccess) {
         setHelperText("AI response streamed live from the backend.");
       } else if (backendResult && backendResult.ok) {
+      if (streamSuccess) {
+        setHelperText("AI response streamed live from the backend.");
+      } else if (backendResult && backendResult.ok) {
         setHelperText("This turn came from the backend AI route. Later, switching to paid AI will mostly be a backend provider change.");
       } else {
+        setHelperText(`Backend chat was unavailable, so the page used local mock AI instead. ${backendResult?.fallbackReason || ""}`.trim());
         setHelperText(`Backend chat was unavailable, so the page used local mock AI instead. ${backendResult?.fallbackReason || ""}`.trim());
       }
     }
