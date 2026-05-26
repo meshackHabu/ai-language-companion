@@ -1,4 +1,7 @@
 node_modules
+node_modules/
 data/app.db
 .env
 backend/.env
+*.tmp_*
+.DS_Store

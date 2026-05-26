@@ -15,7 +15,14 @@ const app = express();
 const env = getEnvConfig();
 const PORT = env.port;
 
-app.use(cors());
+// Configure CORS options
+const corsOptions = {
+  origin: 'http://localhost:5501', // Allow only your frontend port
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
 
 app.get("/", (req, res) => {
