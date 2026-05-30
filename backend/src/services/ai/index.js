@@ -1,21 +1,19 @@
 const { getEnvConfig } = require("../../config/env");
 const { buildMockResponse } = require("./providers/mockProvider");
 const { buildOpenAiResponse } = require("./providers/openaiProvider");
+const { validateAiResponse } = require("./responseValidator"); 
 
 function optimizeChatHistory(chatHistory) {
-  // Keep only the last N turns (max 15) to prevent token limits
   const MAX_TURNS = 15;
   
   if (!Array.isArray(chatHistory) || chatHistory.length === 0) {
     return [];
   }
 
-  // If history is smaller than limit, return as is
   if (chatHistory.length <= MAX_TURNS) {
     return chatHistory;
   }
 
-  // Keep the system message (first message) + last N-1 turns
   const systemMessages = chatHistory.filter(msg => msg.role === "system");
   const nonSystemMessages = chatHistory.filter(msg => msg.role !== "system");
   
@@ -29,21 +27,41 @@ function optimizeChatHistory(chatHistory) {
 
 async function generateAiResponse(input) {
   const env = getEnvConfig();
-
-  // Optimize chat history before passing to provider
   const optimizedHistory = optimizeChatHistory(input.chatHistory || []);
 
-  if (env.aiProvider === "openai") {
-    return buildOpenAiResponse({
-      ...input,
-      chatHistory: optimizedHistory
-    });
-  }
+  let response;
 
-  return buildMockResponse({
-    ...input,
-    chatHistory: optimizedHistory
-  });
+  try {
+    if (env.aiProvider === "openai") {
+      response = await buildOpenAiResponse({
+        ...input,
+        chatHistory: optimizedHistory
+      });
+    } else {
+      response = buildMockResponse({
+        ...input,
+        chatHistory: optimizedHistory
+      });
+    }
+
+    // Validate response structure
+    return validateAiResponse(response);
+    
+  } catch (error) {
+    console.error("Error generating AI response:", error.message);
+    
+    // Fallback to mock response if real provider fails
+    if (env.aiProvider !== "mock") {
+      console.warn("Falling back to mock provider due to error");
+      const mockResponse = buildMockResponse({
+        ...input,
+        chatHistory: optimizedHistory
+      });
+      return validateAiResponse(mockResponse);
+    }
+    
+    throw error;
+  }
 }
 
 module.exports = {

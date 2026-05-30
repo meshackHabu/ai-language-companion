@@ -2,6 +2,7 @@ require("dotenv").config();
 
 const express = require("express");
 const cors = require("cors");
+const path = require("path");
 
 const { getEnvConfig } = require("./src/config/env");
 const { initializeDatabase } = require("./src/db/database");
@@ -15,33 +16,41 @@ const app = express();
 const env = getEnvConfig();
 const PORT = env.port;
 
-// Configure CORS options
-const corsOptions = {
-  origin: 'http://localhost:5501', // Allow only your frontend port
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-};
+// Allow all origins in development
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: false
+}));
 
-app.use(cors(corsOptions));
 app.use(express.json());
 
-app.get("/", (req, res) => {
-  res.json({
-    message: "AI Language Companion backend is running."
-  });
-});
+// ✅ Serve frontend static files from the parent directory
+const frontendPath = path.join(__dirname, "..");
+app.use(express.static(frontendPath));
 
+// API routes
 app.use("/auth", authRoutes);
 app.use("/user", profileRoutes);
 app.use("/progress", progressRoutes);
 app.use("/ai", chatRoutes);
-app.use("/api", chatRoutes);
 app.use("/admin", adminRoutes);
+
+// ✅ Serve frontend HTML files for all non-API routes
+app.get("*.html", (req, res) => {
+  const filePath = path.join(frontendPath, req.path);
+  res.sendFile(filePath, (err) => {
+    if (err) res.status(404).send("Page not found");
+  });
+});
 
 initializeDatabase()
   .then(() => {
     app.listen(PORT, () => {
-      console.log(`Backend running on http://localhost:${PORT} (AI provider: ${env.aiProvider})`);
+      console.log(`✅ Server running at http://localhost:${PORT}`);
+      console.log(`✅ AI provider: ${env.aiProvider}`);
+      console.log(`✅ Open your app at: http://localhost:${PORT}/index.html`);
     });
   })
   .catch(error => {
