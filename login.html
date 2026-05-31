@@ -47,6 +47,7 @@
       </form>
 
       <p class="auth-note" id="loginStatus">Tip: if you have not created an account yet, use Sign Up first.</p>
+      <p class="auth-switch"><a href="forgot-password.html">Forgot your password?</a></p>
       <p class="auth-switch">New here? <a href="signup.html">Create an account</a></p>
     </section>
   </div>
@@ -56,7 +57,7 @@
     const selectedLang = params.get("lang") || localStorage.getItem("selectedLanguage") || "yoruba";
     const logoutMode = params.get("logout") === "1";
     const forceAuth = params.get("forceAuth") === "1";
-    const API_BASE = "http://localhost:5500";
+    const API_BASE = "";
 
     function getStoredUser() {
       try {

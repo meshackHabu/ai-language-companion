@@ -29,6 +29,8 @@ async function initializeDatabase() {
       selected_language TEXT DEFAULT 'yoruba',
       selected_category TEXT DEFAULT 'all',
       study_mode TEXT DEFAULT 'level',
+      reset_token TEXT,
+      reset_token_expires TEXT,
       created_at TEXT NOT NULL
     );
 
@@ -69,6 +71,9 @@ async function initializeDatabase() {
     );
   `);
 
+  // Always ensure reset_token columns exist (safe to run every startup)
+  await runMigrations();
+
   const userColumns = await db.all(`PRAGMA table_info(users)`);
   const hasRoleColumn = userColumns.some(column => column.name === "role");
 
@@ -79,7 +84,27 @@ async function initializeDatabase() {
   return db;
 }
 
+
+
+// Migration: add password reset columns if not present
+async function runMigrations() {
+  const db = await getDatabase();
+  const cols = await db.all('PRAGMA table_info(users)');
+  const names = cols.map(c => c.name);
+
+  if (!names.includes('reset_token')) {
+    await db.exec(`ALTER TABLE users ADD COLUMN reset_token TEXT`);
+    console.log('✅ Migration: added reset_token column');
+  }
+  if (!names.includes('reset_token_expires')) {
+    await db.exec(`ALTER TABLE users ADD COLUMN reset_token_expires TEXT`);
+    console.log('✅ Migration: added reset_token_expires column');
+  }
+  return db;
+}
+
 module.exports = {
   getDatabase,
-  initializeDatabase
+  initializeDatabase,
+  runMigrations
 };
