@@ -113,6 +113,7 @@
         <div class="profile-summary-card">
           <p class="profile-summary-label">Progress Snapshot</p>
           <p id="dashboardSummary">Start a quiz or flashcard session to build your stats.</p>
+          <p id="chatTurnsBadge" style="display:none; margin-top:0.5rem; font-size:0.8rem; color: var(--color-accent, #6366f1); font-weight: 500;"></p>
         </div>
 
         <div class="profile-actions">
@@ -128,7 +129,7 @@
     const lang = params.get("lang");
     const categoryParam = params.get("category");
     const modeParam = params.get("studyMode");
-    const API_BASE_URL = "http://localhost:5500";
+    const API_BASE_URL = "";
 
     const titles = {
       hausa: "Learning Hausa",
@@ -422,22 +423,43 @@
     function renderProfile(stats, currentDeck, userOverride = null) {
       const user = normalizeUserRecord(userOverride || getActiveUser());
 
-      document.getElementById("profileAvatar").textContent = getInitials(user.name);
-      document.getElementById("profileName").textContent = user.name || "Language Partner";
-      document.getElementById("profileEmail").textContent = user.email || "learner@example.com";
-      document.getElementById("profileGoal").textContent = user.goal || "Daily conversation practice";
-      document.getElementById("profileJoined").textContent = formatJoinDate(user.joinedAt);
-      document.getElementById("dashboardUserQuick").textContent = `${user.name} - ${user.email}`;
-      document.getElementById("profileLanguageChip").textContent = prettyLanguageNames[savedLang] || "Language";
+      // ── Identity ────────────────────────────────────────────────────────
+      document.getElementById("profileAvatar").textContent   = getInitials(user.name);
+      document.getElementById("profileName").textContent     = user.name  || "Language Partner";
+      document.getElementById("profileEmail").textContent    = user.email || "—";
+      document.getElementById("profileGoal").textContent     = user.goal  || "Daily conversation practice";
+      document.getElementById("profileJoined").textContent   = formatJoinDate(user.joinedAt);
+      document.getElementById("dashboardUserQuick").textContent = `${user.name} – ${user.email}`;
+
+      // ── Chips ───────────────────────────────────────────────────────────
+      document.getElementById("profileLanguageChip").textContent =
+        prettyLanguageNames[savedLang] || "Language";
       document.getElementById("profileLevelChip").textContent = stats.level;
       document.getElementById("profileStreakChip").textContent =
         `${stats.streak} ${stats.streak === 1 ? "day" : "days"} streak`;
 
+      // ── Metrics ─────────────────────────────────────────────────────────
+      const practiced = stats.practicedCount || 0;
+      const total     = currentDeck.length   || 0;
+
       document.getElementById("wordsPracticedValue").textContent =
-        `${stats.practicedCount} / ${currentDeck.length || 0}`;
-      document.getElementById("accuracyValue").textContent = `${stats.accuracy}%`;
-      document.getElementById("masteredValue").textContent = stats.masteredCount;
-      document.getElementById("weakWordsValue").textContent = stats.weakCount;
+        total > 0 ? `${practiced} / ${total}` : practiced;
+
+      document.getElementById("accuracyValue").textContent =
+        stats.totalAttempts > 0 ? `${stats.accuracy}%` : "—";
+
+      document.getElementById("masteredValue").textContent = stats.masteredCount || 0;
+      document.getElementById("weakWordsValue").textContent = stats.weakCount    || 0;
+
+      // ── Chat activity chip (if no quiz data yet) ────────────────────────
+      const chatBadgeEl = document.getElementById("chatTurnsBadge");
+      if (chatBadgeEl) {
+        const turns = stats.chatTurns || 0;
+        chatBadgeEl.textContent = turns > 0
+          ? `${turns} AI chat message${turns === 1 ? "" : "s"}`
+          : "";
+        chatBadgeEl.style.display = turns > 0 ? "block" : "none";
+      }
     }
 
     async function renderDashboard() {
@@ -446,40 +468,61 @@
       let activeUser = normalizeUserRecord(getActiveUser());
       const userId = getActiveUserId();
 
+      // First render: use localStorage data immediately (fast)
       renderProfile(stats, currentDeck, activeUser);
 
+      // Second render: sync from backend (accurate)
       if (userId) {
         try {
-          const [backendUser, backendProgress] = await Promise.all([
-            fetchBackendProfile(userId),
-            fetchBackendProgress(userId)
-          ]);
+          const response = await fetch(`${API_BASE_URL}/user/dashboard/${userId}`);
+          if (!response.ok) {
+            if (response.status === 404) {
+              localStorage.removeItem("languageCompanionSession");
+              localStorage.removeItem("languageCompanionUser");
+              window.location.href = `login.html?lang=${savedLang}&forceAuth=1`;
+              return;
+            }
+            throw new Error(`Backend returned ${response.status}`);
+          }
 
+          const data = await response.json();
+
+          // ── Update user from backend (authoritative) ────────────────────
           activeUser = normalizeUserRecord({
-            id: backendUser.id,
-            name: backendUser.name,
-            email: backendUser.email,
-            role: backendUser.role || "user",
-            goal: backendUser.goal || "Daily conversation practice",
-            joinedAt: backendUser.created_at
+            id:        data.user.id,
+            name:      data.user.name,
+            email:     data.user.email,
+            role:      data.user.role || "user",
+            goal:      data.user.goal || "Daily conversation practice",
+            joinedAt:  data.user.created_at
           });
           saveStoredUser(activeUser);
-          stats = getBackendDashboardStats(
-            backendProgress.progress || [],
-            backendProgress.sessions || [],
+
+          // ── Build stats from backend data ───────────────────────────────
+          const langStats   = (data.statsByLanguage || {})[savedLang] || {};
+          const chatTurns   = langStats.chatTurns || 0;
+
+          // Merge backend word-progress stats with local deck
+          const backendStats = getBackendDashboardStats(
+            data.wordProgress || [],
+            data.sessions     || [],
             currentDeck
           );
+
+          // Include chat turns as additional "practice" signal
+          stats = {
+            ...backendStats,
+            chatTurns,
+            // If no quiz/flashcard attempts yet, show chat turns instead
+            practicedCount: backendStats.practicedCount || 0,
+          };
+
         } catch (error) {
-          if (error.status === 404) {
-            localStorage.removeItem("languageCompanionSession");
-            localStorage.removeItem("languageCompanionUser");
-            window.location.href = `login.html?lang=${savedLang}&forceAuth=1`;
-            return;
-          }
           console.warn("Dashboard backend sync failed, using local fallback.", error);
         }
       }
 
+      // ── Update text blocks ─────────────────────────────────────────────
       const reviewLabel = stats.weakCount === 0
         ? "No weak words yet. Keep practicing to build a review list."
         : `${stats.weakCount} weak word${stats.weakCount === 1 ? "" : "s"} ready for review in ${formatCategoryName(selectedCategory)}.`;
@@ -494,15 +537,18 @@
       let summary = "Start a quiz or flashcard session to build your stats.";
 
       if (stats.totalAttempts > 0) {
-        summary =
-          `You are at ${stats.level} level with ${stats.accuracy}% accuracy. You have practiced ${stats.practicedCount} words, mastered ${stats.masteredCount}, and still have ${stats.weakCount} weak word${stats.weakCount === 1 ? "" : "s"} to revisit.`;
-
-        if (stats.levelHint) {
-          summary += ` ${stats.levelHint}`;
-        }
+        summary = `You are at ${stats.level} level with ${stats.accuracy}% accuracy. ` +
+          `You have practiced ${stats.practicedCount} words, mastered ${stats.masteredCount}, ` +
+          `and still have ${stats.weakCount} weak word${stats.weakCount === 1 ? "" : "s"} to revisit.`;
+        if (stats.levelHint) summary += ` ${stats.levelHint}`;
+      } else if (stats.chatTurns > 0) {
+        summary = `You have sent ${stats.chatTurns} AI chat message${stats.chatTurns === 1 ? "" : "s"}. ` +
+          `Start a quiz or flashcard session to track your word accuracy.`;
       }
 
       document.getElementById("dashboardSummary").textContent = summary;
+
+      // Final profile render with accurate data
       renderProfile(stats, currentDeck, activeUser);
     }
 
